@@ -33,6 +33,18 @@ public sealed class GameTextEntryKeyGestureParserTests
         Assert.Equal(gesture, parsed);
     }
 
+    [Theory]
+    [InlineData(",", 0xBC)]
+    [InlineData(";", 0xBA)]
+    public void Parses_literal_punctuation_keys_without_treating_them_as_list_separators(
+        string text,
+        uint expectedVirtualKey)
+    {
+        var gesture = GameTextEntryKeyGestureParser.Parse(text);
+
+        Assert.Equal(new GameTextEntryKeyGesture(expectedVirtualKey), gesture);
+    }
+
     [Fact]
     public void Duplicate_list_items_are_removed()
     {

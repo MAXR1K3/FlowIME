@@ -36,6 +36,7 @@ public sealed class JsonGameTextEntryProfileRepositoryTests
         Assert.Equal(expected.Id, actual.Id);
         Assert.Equal(expected.ApplicationIdentityKey, actual.ApplicationIdentityKey);
         Assert.Equal(expected.ApplicationDisplayName, actual.ApplicationDisplayName);
+        Assert.Equal(expected.ExecutablePath, actual.ExecutablePath);
         Assert.Equal(expected.DetectionMode, actual.DetectionMode);
         Assert.Equal(expected.Action, actual.Action);
         Assert.Equal(expected.ProviderId, actual.ProviderId);
@@ -82,6 +83,7 @@ public sealed class JsonGameTextEntryProfileRepositoryTests
             Id = "game-chat:path:test",
             ApplicationIdentityKey = "path:test",
             ApplicationDisplayName = "Test Game",
+            ExecutablePath = @"C:\Games\TestGame.exe",
             DetectionMode = GameTextEntryDetectionMode.StandardTextControl |
                 GameTextEntryDetectionMode.HotkeyProfile,
             ProviderId = InputMethodProviderIds.WeChat,

@@ -5,7 +5,7 @@
     xmlns:layout="using:FlowIME.App.Layout"
     Loaded="SettingsPage_Loaded">
 
-    <ScrollViewer MaxWidth="{StaticResource FlowPageContentMaxWidth}" HorizontalAlignment="Stretch"
+    <ScrollViewer HorizontalAlignment="Stretch"
         HorizontalScrollBarVisibility="Disabled"
         HorizontalScrollMode="Disabled"
         VerticalScrollBarVisibility="Auto"
@@ -58,10 +58,11 @@
                         <Setter Target="LegacyHotkeyToggle.Margin" Value="0,10,0,0" />
                         <Setter Target="LegacyHotkeyToggle.HorizontalAlignment" Value="Left" />
 
-                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Row)" Value="1" />
-                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Column)" Value="0" />
-                        <Setter Target="ConfigureGameTextEntryButton.Margin" Value="0,12,0,0" />
-                        <Setter Target="ConfigureGameTextEntryButton.HorizontalAlignment" Value="Left" />
+                        <Setter Target="GameTextEntryActions.(Grid.Row)" Value="1" />
+                        <Setter Target="GameTextEntryActions.(Grid.Column)" Value="0" />
+                        <Setter Target="GameTextEntryActions.Margin" Value="0,12,0,0" />
+                        <Setter Target="GameTextEntryActions.HorizontalAlignment" Value="Left" />
+                        <Setter Target="GameLibraryList.(Grid.Row)" Value="2" />
 
                         <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="1" />
                         <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="0" />
@@ -116,10 +117,11 @@
                         <Setter Target="LegacyHotkeyToggle.Margin" Value="0" />
                         <Setter Target="LegacyHotkeyToggle.HorizontalAlignment" Value="Right" />
 
-                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Row)" Value="0" />
-                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Column)" Value="1" />
-                        <Setter Target="ConfigureGameTextEntryButton.Margin" Value="0" />
-                        <Setter Target="ConfigureGameTextEntryButton.HorizontalAlignment" Value="Right" />
+                        <Setter Target="GameTextEntryActions.(Grid.Row)" Value="0" />
+                        <Setter Target="GameTextEntryActions.(Grid.Column)" Value="1" />
+                        <Setter Target="GameTextEntryActions.Margin" Value="0" />
+                        <Setter Target="GameTextEntryActions.HorizontalAlignment" Value="Right" />
+                        <Setter Target="GameLibraryList.(Grid.Row)" Value="1" />
 
                         <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="0" />
                         <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="1" />
@@ -158,7 +160,7 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowSettingsContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Stretch">
+        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowPageContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Left">
             <StackPanel Spacing="5">
                 <TextBlock x:Name="PageTitle" Text="设置" Style="{StaticResource FlowPageTitleStyle}" />
                 <TextBlock
@@ -345,23 +347,12 @@
             </StackPanel>
 
             <StackPanel x:Name="GameProtectionSection" Spacing="10" Visibility="Collapsed">
-                <Border Padding="20" Style="{StaticResource FlowHeroCardStyle}">
-                    <Grid ColumnSpacing="14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="48" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Border Width="44" Height="44" CornerRadius="12" Background="{ThemeResource FlowAccentSoftBrush}">
-                            <FontIcon Glyph="&#xE7FC;" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="游戏保护" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock
-                                Text="游戏普通状态保持 US 键盘，并阻止输入法快捷键误触；离开游戏后自动恢复桌面应用规则。"
-                                Style="{StaticResource FlowMutedTextStyle}" />
-                        </StackPanel>
-                    </Grid>
-                </Border>
+                <StackPanel Spacing="4">
+                    <TextBlock Text="游戏保护" Style="{StaticResource FlowSectionTitleStyle}" />
+                    <TextBlock
+                        Text="游戏时保持 US 键盘并阻止输入法快捷键误触；离开游戏后自动恢复。"
+                        Style="{StaticResource FlowMutedTextStyle}" />
+                </StackPanel>
 
                 <Border Style="{StaticResource FlowCardStyle}">
                     <StackPanel>
@@ -507,35 +498,109 @@
                 </Border>
             </StackPanel>
 
-            <StackPanel x:Name="GameTextEntrySection" Spacing="10" Visibility="Collapsed">
-                <TextBlock Text="游戏文字输入" Style="{StaticResource FlowSectionTitleStyle}" />
-                <Border Padding="18" Style="{StaticResource FlowCardStyle}">
-                    <Grid ColumnSpacing="20" RowSpacing="4">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Spacing="4">
-                            <TextBlock Text="聊天 / 搜索 / 命名输入" FontWeight="SemiBold" TextWrapping="Wrap" />
-                            <TextBlock
-                                x:Name="GameTextEntryProfileStatusText"
-                                Text="先运行一次游戏，FlowIME 会记住最近识别到的游戏，再为它配置文字输入方式。"
-                                Style="{StaticResource FlowMutedTextStyle}" />
-                        </StackPanel>
+            <StackPanel x:Name="GameTextEntrySection" Spacing="12" Visibility="Collapsed">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="游戏文字输入库" Style="{StaticResource FlowSectionTitleStyle}" />
+                    <TextBlock
+                        x:Name="GameTextEntryProfileStatusText"
+                        Text="集中管理每款游戏的聊天输入；扫描不会覆盖已有配置。"
+                        Style="{StaticResource FlowMutedTextStyle}" />
+                </StackPanel>
+
+                <Grid ColumnSpacing="10" RowSpacing="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <AutoSuggestBox
+                        x:Name="GameLibrarySearchBox"
+                        MinWidth="260"
+                        MaxWidth="520"
+                        HorizontalAlignment="Stretch"
+                        VerticalContentAlignment="Center"
+                        PlaceholderText="搜索游戏"
+                        QueryIcon="Find"
+                        TextChanged="GameLibrarySearchBox_TextChanged"
+                        AutomationProperties.Name="搜索游戏库" />
+                    <StackPanel
+                        x:Name="GameTextEntryActions"
+                        Grid.Column="1"
+                        Orientation="Horizontal"
+                        Spacing="8"
+                        HorizontalAlignment="Right">
                         <Button
-                            x:Name="ConfigureGameTextEntryButton"
-                            Grid.Column="1"
+                            x:Name="ScanGameLibraryButton"
                             Style="{StaticResource FlowSecondaryButtonStyle}"
-                            VerticalAlignment="Center"
-                            HorizontalAlignment="Right"
-                            Content="配置最近游戏"
-                            Click="ConfigureGameTextEntryButton_Click" />
-                    </Grid>
-                </Border>
+                            Content="扫描"
+                            ToolTipService.ToolTip="重新扫描 Steam 和 Epic 本地游戏库"
+                            Click="ScanGameLibraryButton_Click" />
+                        <Button
+                            x:Name="AddGameTextEntryButton"
+                            Style="{StaticResource FlowPrimaryButtonStyle}"
+                            Content="添加游戏…"
+                            Click="AddGameTextEntryButton_Click" />
+                    </StackPanel>
+
+                    <ListView
+                        x:Name="GameLibraryList"
+                        Grid.Row="1"
+                        Grid.ColumnSpan="2"
+                        SelectionMode="None"
+                        IsItemClickEnabled="False"
+                        AutomationProperties.Name="游戏输入库">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem" BasedOn="{StaticResource FlowRuleListItemStyle}">
+                                <Setter Property="Margin" Value="0,0,0,8" />
+                            </Style>
+                        </ListView.ItemContainerStyle>
+                        <ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Border Padding="14" Style="{StaticResource FlowCardStyle}">
+                                    <Grid MinHeight="60" ColumnSpacing="14">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Border Width="56" Height="56" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                            <Grid>
+                                                <FontIcon Glyph="&#xE7FC;" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <Image Source="{Binding Icon}" Stretch="UniformToFill" />
+                                            </Grid>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                                <Border Style="{StaticResource FlowStatusPillStyle}">
+                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="11" />
+                                                </Border>
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding ShortcutSummary}" Style="{StaticResource FlowMutedTextStyle}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <TextBlock
+                                            Grid.Column="2"
+                                            Text="{Binding SourceLabel}"
+                                            Margin="10,0"
+                                            VerticalAlignment="Center"
+                                            Style="{StaticResource FlowMutedTextStyle}" />
+                                        <Button
+                                            Grid.Column="3"
+                                            Style="{StaticResource FlowSubtleButtonStyle}"
+                                            VerticalAlignment="Center"
+                                            Content="配置"
+                                            Click="ConfigureGameLibraryItemButton_Click" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </Grid>
             </StackPanel>
 
             <StackPanel x:Name="DiagnosticsSection" Spacing="10">

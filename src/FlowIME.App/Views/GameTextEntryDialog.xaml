@@ -15,7 +15,7 @@
 
 
     <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto">
-        <StackPanel x:Name="DialogRoot" MaxWidth="600" Spacing="16">
+        <StackPanel x:Name="DialogRoot" MaxWidth="600" Spacing="12">
             <VisualStateManager.VisualStateGroups>
                 <VisualStateGroup>
                     <VisualState x:Name="CompactWidth">
@@ -37,23 +37,6 @@
                 </VisualStateGroup>
             </VisualStateManager.VisualStateGroups>
 
-            <Border Padding="16" Style="{StaticResource FlowHeroCardStyle}">
-                <Grid ColumnSpacing="12">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="44" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Border Width="40" Height="40" CornerRadius="10" Background="{ThemeResource AccentFillColorTertiaryBrush}">
-                        <FontIcon Glyph="&#xE7FC;" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
-                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
-                        <TextBlock x:Name="GameNameText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
-                        <TextBlock
-                            Text="普通游戏状态仍保持 US；这里只定义进入聊天、搜索或命名输入时的行为。"
-                            Style="{StaticResource FlowMutedTextStyle}" />
-                    </StackPanel>
-                </Grid>
-            </Border>
 
             <Grid ColumnSpacing="16" RowSpacing="4">
                 <Grid.RowDefinitions>
@@ -110,9 +93,91 @@
 
             <Border x:Name="HotkeyFields" Padding="14" Style="{StaticResource FlowInsetCardStyle}">
                 <StackPanel Spacing="12">
-                    <TextBox x:Name="EnterGesturesBox" Header="打开聊天 / 输入" PlaceholderText="例如 Enter, T, Y" />
-                    <TextBox x:Name="ExitGesturesBox" Header="发送 / 关闭输入" PlaceholderText="例如 Enter, Esc" />
-                    <TextBlock Text="多个快捷键用英文逗号分隔；可使用 Ctrl、Alt、Shift、Win 修饰键。" FontSize="12" Style="{StaticResource FlowTertiaryTextStyle}" />
+                    <TextBlock
+                        Text="常用按键可直接多选；只有特殊键或组合键才需要按键录入。"
+                        Style="{StaticResource FlowMutedTextStyle}" />
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="打开聊天 / 输入" FontWeight="SemiBold" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <ToggleButton x:Name="OpenEnterPreset" Content="Enter" Tag="enter:13" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="OpenTPreset" Grid.Column="1" Content="T" Tag="enter:84" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="OpenYPreset" Grid.Column="2" Content="Y" Tag="enter:89" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="OpenUPreset" Grid.Column="3" Content="U" Tag="enter:85" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="OpenSlashPreset" Grid.Column="4" Content="/" Tag="enter:191" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="OpenCommaPreset" Grid.Column="5" Content="," Tag="enter:188" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="OpenPeriodPreset" Grid.Column="6" Content="." Tag="enter:190" Click="PresetGestureButton_Click" />
+                        </Grid>
+                    </StackPanel>
+
+                    <StackPanel Spacing="6">
+                        <TextBlock Text="发送 / 关闭输入" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <ToggleButton x:Name="ExitEnterPreset" Content="Enter" Tag="exit:13" Click="PresetGestureButton_Click" />
+                            <ToggleButton x:Name="ExitEscapePreset" Content="Esc" Tag="exit:27" Click="PresetGestureButton_Click" />
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock
+                        Text="更多按键"
+                        FontWeight="SemiBold" />
+                    <TextBlock
+                        Text="点击下方相应区域，再按下实际按键；可以录入组合键。"
+                        Style="{StaticResource FlowTertiaryTextStyle}" />
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            x:Name="EnterGesturesBox"
+                            Header="打开聊天 / 输入"
+                            PlaceholderText="点击这里，然后按下聊天键"
+                            IsReadOnly="True"
+                            PreviewKeyDown="GestureBox_PreviewKeyDown" />
+                        <Button
+                            x:Name="ClearEnterGesturesButton"
+                            Grid.Column="1"
+                            Margin="0,24,0,0"
+                            VerticalAlignment="Center"
+                            Content="清空"
+                            Click="ClearEnterGesturesButton_Click" />
+                    </Grid>
+
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox
+                            x:Name="ExitGesturesBox"
+                            Header="发送 / 关闭输入"
+                            PlaceholderText="点击这里，然后按下发送或取消键"
+                            IsReadOnly="True"
+                            PreviewKeyDown="GestureBox_PreviewKeyDown" />
+                        <Button
+                            x:Name="ClearExitGesturesButton"
+                            Grid.Column="1"
+                            Margin="0,24,0,0"
+                            VerticalAlignment="Center"
+                            Content="清空"
+                            Click="ClearExitGesturesButton_Click" />
+                    </Grid>
+
+                    <TextBlock
+                        Text="组合键请一起按下，例如 Ctrl + Y。已录入的键不会拦截游戏。"
+                        FontSize="12"
+                        Style="{StaticResource FlowTertiaryTextStyle}" />
                 </StackPanel>
             </Border>
 

@@ -2,17 +2,28 @@ using FlowIME.Core.Settings;
 using FlowIME.Core.Context;
 using FlowIME.Core.Models;
 using FlowIME.App.Services;
+using FlowIME.App.ViewModels;
 using System.Diagnostics;
+using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Microsoft.UI.Xaml.Navigation;
+using Windows.Storage;
+using Windows.Storage.Pickers;
 
 namespace FlowIME.App.Views;
 
 public sealed partial class SettingsPage : Page
 {
     private readonly DiagnosticsClipboardWriter _diagnosticsClipboard = new();
+    private readonly LocalGameLibraryScanner _gameLibraryScanner = LocalGameLibraryScanner.CreateDefault();
+    private readonly ApplicationIconLoader _applicationIconLoader = new();
+    private IReadOnlyList<GameLibraryScanEntry> _discoveredGames = [];
+    private IReadOnlyList<GameTextEntryTargetItemViewModel> _gameLibraryItems = [];
+    private bool _gameLibraryScanned;
     // XAML raises control change events during InitializeComponent. Every guard
     // must start active, including controls hidden by the current page mode, or
     // their XAML defaults can overwrite persisted preferences before Loaded.
@@ -292,36 +303,186 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private async void ConfigureGameTextEntryButton_Click(object sender, RoutedEventArgs e)
+    private async void ConfigureGameLibraryItemButton_Click(object sender, RoutedEventArgs e)
     {
-        var services = ((App)Application.Current).Services;
-        var recent = services.GetRecentGameplayTarget();
-        if (recent is null)
+        if (sender is not Button button ||
+            button.DataContext is not GameTextEntryTargetItemViewModel selected)
         {
-            GameTextEntryProfileStatusText.Text =
-                "还没有检测到游戏。请先进入一次能够被 FlowIME 识别的游戏，再回来配置。";
             return;
         }
 
+        button.IsEnabled = false;
+        try
+        {
+            if (!selected.CanConfigureDirectly)
+            {
+                var resolved = await ResolveExecutableForTargetAsync(selected);
+                if (resolved is null)
+                {
+                    GameTextEntryProfileStatusText.Text =
+                        $"{selected.DisplayName} 需要关联实际运行的游戏 EXE 后才能配置。";
+                    return;
+                }
+                selected = resolved;
+            }
+
+            await ConfigureGameTextEntryTargetAsync(selected);
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+    }
+
+    private async void AddGameTextEntryButton_Click(object sender, RoutedEventArgs e)
+    {
+        AddGameTextEntryButton.IsEnabled = false;
+        try
+        {
+            var picker = new FileOpenPicker();
+            picker.FileTypeFilter.Add(".exe");
+
+            var app = (App)Application.Current;
+            if (app.MainWindow is not null)
+            {
+                var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(app.MainWindow);
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, windowHandle);
+            }
+
+            var file = await picker.PickSingleFileAsync();
+            if (file is null)
+            {
+                return;
+            }
+
+            var application = ExecutableCandidateFactory.Create(file.Path);
+            var identity = FlowIME.Core.Context.ApplicationIdentity.FromRunningApplication(application);
+            var profiles = await ((App)Application.Current).Services.GetGameTextEntryProfilesAsync();
+            var existing = profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(
+                profile.ApplicationIdentityKey,
+                identity.Key));
+            var selected = new GameTextEntryTargetItemViewModel(
+                identity.Key,
+                application.DisplayName,
+                IsRecent: false,
+                existing,
+                SourceName: "手动",
+                ExecutablePath: file.Path);
+
+            await ConfigureGameTextEntryTargetAsync(selected);
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.GameTextEntry] stage=game-picker result=failed " +
+                $"error={ex.GetType().Name}:{ex.Message}");
+            GameTextEntryProfileStatusText.Text = "无法添加游戏，请确认选择的是可访问的 EXE 文件。";
+        }
+        finally
+        {
+            AddGameTextEntryButton.IsEnabled = true;
+        }
+    }
+
+    private async void ScanGameLibraryButton_Click(object sender, RoutedEventArgs e)
+    {
+        ScanGameLibraryButton.IsEnabled = false;
+        GameTextEntryProfileStatusText.Text = "正在扫描 Steam 和 Epic 本地游戏库…";
+        try
+        {
+            _discoveredGames = await _gameLibraryScanner.ScanAsync();
+            _gameLibraryScanned = true;
+            await RefreshGameTextEntryProfileStateAsync();
+            GameTextEntryProfileStatusText.Text = _discoveredGames.Count == 0
+                ? "未从 Steam 或 Epic 本地清单发现游戏；仍可使用“添加游戏…”。"
+                : $"已发现 {_discoveredGames.Count} 款游戏。未明确主程序的项目需要手动关联 EXE。";
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.GameLibrary] stage=scan result=failed error={ex.GetType().Name}:{ex.Message}");
+            GameTextEntryProfileStatusText.Text = "游戏库扫描失败；已有配置未受影响。";
+        }
+        finally
+        {
+            ScanGameLibraryButton.IsEnabled = true;
+        }
+    }
+
+    private void GameLibrarySearchBox_TextChanged(
+        AutoSuggestBox sender,
+        AutoSuggestBoxTextChangedEventArgs args) =>
+        ApplyGameLibraryFilter();
+
+    private void ApplyGameLibraryFilter()
+    {
+        var query = GameLibrarySearchBox.Text?.Trim();
+        var filtered = string.IsNullOrWhiteSpace(query)
+            ? _gameLibraryItems
+            : _gameLibraryItems.Where(item =>
+                    item.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                    item.SourceName.Contains(query, StringComparison.CurrentCultureIgnoreCase))
+                .ToArray();
+        GameLibraryList.ItemsSource = filtered;
+    }
+
+    private async Task<GameTextEntryTargetItemViewModel?> ResolveExecutableForTargetAsync(
+        GameTextEntryTargetItemViewModel target)
+    {
+        var picker = new FileOpenPicker();
+        picker.FileTypeFilter.Add(".exe");
+        var app = (App)Application.Current;
+        if (app.MainWindow is not null)
+        {
+            var windowHandle = WinRT.Interop.WindowNative.GetWindowHandle(app.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, windowHandle);
+        }
+
+        var file = await picker.PickSingleFileAsync();
+        if (file is null)
+        {
+            return null;
+        }
+
+        var application = ExecutableCandidateFactory.Create(file.Path);
+        var identity = FlowIME.Core.Context.ApplicationIdentity.FromRunningApplication(application);
+        var profiles = await app.Services.GetGameTextEntryProfilesAsync();
+        var existing = profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(
+            profile.ApplicationIdentityKey,
+            identity.Key));
+        return new GameTextEntryTargetItemViewModel(
+            identity.Key,
+            target.DisplayName,
+            target.IsRecent,
+            existing,
+            target.SourceName,
+            file.Path,
+            target.ArtworkPath,
+            target.ExecutableCandidates);
+    }
+
+    private async Task ConfigureGameTextEntryTargetAsync(GameTextEntryTargetItemViewModel selected)
+    {
+        var services = ((App)Application.Current).Services;
         var existingProfiles = await services.GetGameTextEntryProfilesAsync();
         var existing = existingProfiles
             .FirstOrDefault(profile => StringComparer.Ordinal.Equals(
                 profile.ApplicationIdentityKey,
-                recent.ApplicationIdentityKey));
+                selected.ApplicationIdentityKey));
 
-        var dialog = new GameTextEntryDialog(services, recent, existing)
+        var dialog = new GameTextEntryDialog(services, selected.ToGameplayTarget(), existing)
         {
             XamlRoot = XamlRoot
         };
 
-        ConfigureGameTextEntryButton.IsEnabled = false;
         try
         {
             var result = await dialog.ShowAsync();
             if (dialog.DeleteRequested)
             {
-                await services.DeleteGameTextEntryProfileAsync(recent.ApplicationIdentityKey);
-                GameTextEntryProfileStatusText.Text = $"已删除 {recent.ProcessName} 的文字输入配置。";
+                await services.DeleteGameTextEntryProfileAsync(selected.ApplicationIdentityKey);
+                await RefreshGameTextEntryProfileStateAsync();
+                GameTextEntryProfileStatusText.Text = $"已删除 {selected.DisplayName} 的文字输入配置。";
                 return;
             }
 
@@ -339,10 +500,6 @@ public sealed partial class SettingsPage : Page
                 $"[FlowIME.GameTextEntry] stage=profile-save result=failed " +
                 $"error={ex.GetType().Name}:{ex.Message}");
             GameTextEntryProfileStatusText.Text = "无法保存游戏文字输入配置。";
-        }
-        finally
-        {
-            ConfigureGameTextEntryButton.IsEnabled = true;
         }
     }
 
@@ -585,43 +742,66 @@ public sealed partial class SettingsPage : Page
         LegacyHotkeyToggle.IsEnabled = enabled;
     }
 
+    private async ValueTask<ImageSource?> LoadGameArtworkAsync(
+        GameTextEntryTargetItemViewModel item)
+    {
+        if (!string.IsNullOrWhiteSpace(item.ArtworkPath))
+        {
+            try
+            {
+                var file = await StorageFile.GetFileFromPathAsync(item.ArtworkPath);
+                await using var stream = await file.OpenStreamForReadAsync();
+                var image = new BitmapImage();
+                await image.SetSourceAsync(stream.AsRandomAccessStream());
+                return image;
+            }
+            catch (Exception ex) when (
+                ex is IOException or UnauthorizedAccessException or ArgumentException or
+                    System.Runtime.InteropServices.COMException)
+            {
+            }
+        }
+
+        return string.IsNullOrWhiteSpace(item.ExecutablePath)
+            ? null
+            : await _applicationIconLoader.LoadAsync(item.ExecutablePath);
+    }
+
     private async Task RefreshGameTextEntryProfileStateAsync()
     {
         var services = ((App)Application.Current).Services;
-        var recent = services.GetRecentGameplayTarget();
-        var profiles = await services.GetGameTextEntryProfilesAsync();
-        ConfigureGameTextEntryButton.IsEnabled = recent is not null;
-
-        if (recent is null)
+        if (!_gameLibraryScanned)
         {
-            GameTextEntryProfileStatusText.Text = profiles.Count == 0
-                ? "先运行一次游戏，FlowIME 会记住最近识别到的游戏，再为它配置文字输入方式。"
-                : $"已有 {profiles.Count} 个游戏文字输入配置。运行一次游戏后可编辑最近游戏。";
-            return;
+            try
+            {
+                _discoveredGames = await _gameLibraryScanner.ScanAsync();
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(
+                    $"[FlowIME.GameLibrary] stage=auto-scan result=failed error={ex.GetType().Name}:{ex.Message}");
+            }
+            _gameLibraryScanned = true;
         }
 
-        var profile = profiles.FirstOrDefault(item => StringComparer.Ordinal.Equals(
-            item.ApplicationIdentityKey,
-            recent.ApplicationIdentityKey));
-        GameTextEntryProfileStatusText.Text = profile is null
-            ? $"最近检测到 {recent.ProcessName}，尚未配置文字输入。"
-            : $"{recent.ProcessName} {(profile.Enabled ? "已配置" : "配置已停用")}：{DescribeDetectionMode(profile.DetectionMode)}；输入目标 {DescribeTarget(profile, services)}。";
-    }
+        var recent = services.GetRecentGameplayTarget();
+        var profiles = await services.GetGameTextEntryProfilesAsync();
+        _gameLibraryItems = GameTextEntryTargetItemViewModel.Build(
+            profiles,
+            recent,
+            _discoveredGames);
 
-    private static string DescribeDetectionMode(GameTextEntryDetectionMode mode)
-    {
-        var items = new List<string>();
-        if (mode.HasFlag(GameTextEntryDetectionMode.StandardTextControl)) items.Add("标准文字控件");
-        if (mode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile)) items.Add("快捷键");
-        return items.Count == 0 ? "未启用" : string.Join(" + ", items);
-    }
+        foreach (var item in _gameLibraryItems)
+        {
+            item.Icon = await LoadGameArtworkAsync(item);
+        }
 
-    private static string DescribeTarget(
-        GameTextEntryProfile profile,
-        AppServices services) =>
-        profile.Action == InputAction.Keep
-            ? "保持当前"
-            : $"{services.GetInputMethodProviderDisplayName(profile.ProviderId)} · {(profile.Action == InputAction.Chinese ? "中文" : "英文")}";
+        ApplyGameLibraryFilter();
+        var configuredCount = _gameLibraryItems.Count(item => item.HasProfile);
+        GameTextEntryProfileStatusText.Text = _gameLibraryItems.Count == 0
+            ? "尚未发现游戏。可扫描 Steam/Epic，或手动添加游戏程序。"
+            : $"{_gameLibraryItems.Count} 款游戏 · {configuredCount} 款已配置；扫描不会覆盖已有配置。";
+    }
 
     private void RefreshStartupState()
     {

@@ -138,12 +138,23 @@ public sealed class ResponsiveLayoutTests
     [Theory]
     [InlineData("HomePage.xaml")]
     [InlineData("RulesPage.xaml")]
-    [InlineData("SettingsPage.xaml")]
     public void Large_window_width_cap_is_owned_by_the_centered_viewport(string file)
     {
         var viewport = Xaml("Views/" + file).Root!.Elements().First(e => e.Name.LocalName == "ScrollViewer");
         Assert.Equal("Stretch", (string?)viewport.Attribute("HorizontalAlignment"));
         Assert.Equal("{StaticResource FlowPageContentMaxWidth}", (string?)viewport.Attribute("MaxWidth"));
+    }
+
+    [Fact]
+    public void Settings_content_is_left_aligned_and_capped_without_centering_the_viewport()
+    {
+        var page = Xaml("Views/SettingsPage.xaml");
+        var viewport = page.Root!.Elements().First(e => e.Name.LocalName == "ScrollViewer");
+        var content = Named(page, "PageContent");
+
+        Assert.Null((string?)viewport.Attribute("MaxWidth"));
+        Assert.Equal("Left", (string?)content.Attribute("HorizontalAlignment"));
+        Assert.Equal("{StaticResource FlowPageContentMaxWidth}", (string?)content.Attribute("MaxWidth"));
     }
 
     [Fact]

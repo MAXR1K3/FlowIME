@@ -615,7 +615,25 @@ public sealed class UiShellContractTests
         Assert.Contains("new GameTextEntryHotkeyMonitor", services, StringComparison.Ordinal);
         Assert.Contains("JsonGameTextEntryProfileRepository", services, StringComparison.Ordinal);
         Assert.Contains("游戏文字输入", settings, StringComparison.Ordinal);
-        Assert.Contains("配置最近游戏", settings, StringComparison.Ordinal);
+        Assert.Contains("GameLibraryList", settings, StringComparison.Ordinal);
+        Assert.Contains("SelectionMode=\"None\"", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("MaxHeight=\"420\"", settings, StringComparison.Ordinal);
+        Assert.Contains("GameLibrarySearchBox", settings, StringComparison.Ordinal);
+        Assert.Contains("ScanGameLibraryButton", settings, StringComparison.Ordinal);
+        Assert.Contains("AddGameTextEntryButton", settings, StringComparison.Ordinal);
+        Assert.Contains("Style=\"{StaticResource FlowPrimaryButtonStyle}\"", settings, StringComparison.Ordinal);
+        Assert.Contains("ConfigureGameLibraryItemButton_Click", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("ConfigureGameTextEntryButton", settings, StringComparison.Ordinal);
+        Assert.Contains("Content=\"扫描\"", settings, StringComparison.Ordinal);
+        Assert.Contains("添加游戏…", settings, StringComparison.Ordinal);
+        Assert.Contains("Content=\"配置\"", settings, StringComparison.Ordinal);
+        Assert.Contains("{Binding Icon}", settings, StringComparison.Ordinal);
+        var settingsSource = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "SettingsPage.xaml.cs"));
+        Assert.Contains("GameTextEntryTargetItemViewModel.Build", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("LocalGameLibraryScanner", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("LoadGameArtworkAsync", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("FileOpenPicker", settingsSource, StringComparison.Ordinal);
+        Assert.Contains("ApplicationIdentity.FromRunningApplication", settingsSource, StringComparison.Ordinal);
         Assert.Contains("CallNextHookEx", monitor, StringComparison.Ordinal);
         Assert.DoesNotContain("return 1;", monitor, StringComparison.Ordinal);
     }
@@ -658,6 +676,8 @@ public sealed class UiShellContractTests
         Assert.Contains("x:Name=\"GeneralSection\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"GameProtectionSection\"", xaml, StringComparison.Ordinal);
         Assert.Contains("x:Name=\"GameTextEntrySection\"", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("<ScrollViewer MaxWidth=", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"PageContent\" MaxWidth=\"{StaticResource FlowPageContentMaxWidth}\"", xaml, StringComparison.Ordinal);
         Assert.Contains("快捷键保护范围", xaml, StringComparison.Ordinal);
         Assert.Contains("OnNavigatedTo", source, StringComparison.Ordinal);
         Assert.Contains("ApplyViewMode", source, StringComparison.Ordinal);
@@ -674,10 +694,22 @@ public sealed class UiShellContractTests
         Assert.Contains("WideWidth", xaml, StringComparison.Ordinal);
         Assert.Contains("StandardControlToggle", xaml, StringComparison.Ordinal);
         Assert.Contains("HotkeyProfileToggle", xaml, StringComparison.Ordinal);
+        Assert.Contains("PreviewKeyDown=\"GestureBox_PreviewKeyDown\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"OpenEnterPreset\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"OpenCommaPreset\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"OpenPeriodPreset\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"ExitEscapePreset\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("PresetGestureButton_Click", xaml, StringComparison.Ordinal);
+        Assert.Contains("IsReadOnly=\"True\"", xaml, StringComparison.Ordinal);
+        Assert.Contains("ClearEnterGesturesButton_Click", xaml, StringComparison.Ordinal);
+        Assert.Contains("ClearExitGesturesButton_Click", xaml, StringComparison.Ordinal);
+        Assert.Contains("常用按键可直接多选", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("多个快捷键用英文逗号分隔", xaml, StringComparison.Ordinal);
         Assert.Contains("ValidationBar", xaml, StringComparison.Ordinal);
         Assert.Contains("internal GameTextEntryProfile? ResultProfile", source, StringComparison.Ordinal);
         Assert.DoesNotContain("public GameTextEntryProfile? ResultProfile", source, StringComparison.Ordinal);
-        Assert.Contains("GameTextEntryKeyGestureParser.ParseList", source, StringComparison.Ordinal);
+        Assert.Contains("GameTextEntryKeyGestureParser.FormatList", source, StringComparison.Ordinal);
+        Assert.Contains("GestureBox_PreviewKeyDown", source, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -740,11 +772,28 @@ public sealed class UiShellContractTests
             Assert.Contains("FlowPageContentMaxWidth", xaml, StringComparison.Ordinal);
         }
 
-        foreach (var file in new[] { "SettingsPage.xaml", "AboutPage.xaml", "InputPage.xaml" })
+        foreach (var file in new[] { "AboutPage.xaml", "InputPage.xaml" })
         {
             var xaml = File.ReadAllText(Path.Combine(viewRoot, file));
             Assert.Contains("FlowSettingsContentMaxWidth", xaml, StringComparison.Ordinal);
         }
+
+        var settings = File.ReadAllText(Path.Combine(viewRoot, "SettingsPage.xaml"));
+        Assert.Contains("FlowPageContentMaxWidth", settings, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void UiR33_search_fields_center_text_vertically()
+    {
+        var root = FindRepositoryRoot();
+        var views = Path.Combine(root, "src", "FlowIME.App", "Views");
+        var rules = File.ReadAllText(Path.Combine(views, "RulesPage.xaml"));
+        var settings = File.ReadAllText(Path.Combine(views, "SettingsPage.xaml"));
+
+        Assert.Contains("x:Name=\"SearchBox\"", rules, StringComparison.Ordinal);
+        Assert.Contains("VerticalContentAlignment=\"Center\"", rules, StringComparison.Ordinal);
+        Assert.Contains("x:Name=\"GameLibrarySearchBox\"", settings, StringComparison.Ordinal);
+        Assert.Contains("VerticalContentAlignment=\"Center\"", settings, StringComparison.Ordinal);
     }
 
     [Fact]

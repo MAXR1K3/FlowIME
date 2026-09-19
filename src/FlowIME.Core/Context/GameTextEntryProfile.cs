@@ -42,6 +42,8 @@ public sealed record GameTextEntryProfile
 
     public string ApplicationDisplayName { get; init; } = "Game";
 
+    public string? ExecutablePath { get; init; }
+
     public bool Enabled { get; init; } = true;
 
     public GameTextEntryDetectionMode DetectionMode { get; init; } =
@@ -56,6 +58,25 @@ public sealed record GameTextEntryProfile
 
     public IReadOnlyList<GameTextEntryKeyGesture> ExitGestures { get; init; } =
         Array.Empty<GameTextEntryKeyGesture>();
+
+    public static GameTextEntryProfile CreateDefault(
+        string applicationIdentityKey,
+        string applicationDisplayName) =>
+        new()
+        {
+            Id = $"game-chat:{applicationIdentityKey}",
+            ApplicationIdentityKey = applicationIdentityKey,
+            ApplicationDisplayName = applicationDisplayName,
+            Enabled = true,
+            DetectionMode = GameTextEntryDetectionMode.StandardTextControl |
+                GameTextEntryDetectionMode.HotkeyProfile,
+            EnterGestures = [new GameTextEntryKeyGesture(0x0D)],
+            ExitGestures =
+            [
+                new GameTextEntryKeyGesture(0x0D),
+                new GameTextEntryKeyGesture(0x1B)
+            ]
+        };
 }
 
 /// <summary>
@@ -160,6 +181,9 @@ public sealed class GameTextEntryProfileRegistry
             Id = id,
             ApplicationIdentityKey = applicationKey,
             ApplicationDisplayName = displayName,
+            ExecutablePath = string.IsNullOrWhiteSpace(profile.ExecutablePath)
+                ? null
+                : profile.ExecutablePath.Trim(),
             ProviderId = providerId,
             EnterGestures = enterGestures,
             ExitGestures = exitGestures

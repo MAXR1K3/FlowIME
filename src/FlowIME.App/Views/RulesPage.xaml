@@ -236,6 +236,7 @@
             x:Name="SearchBox"
             AutomationProperties.Name="搜索应用规则"
             MinHeight="40"
+            VerticalContentAlignment="Center"
             Grid.Row="5" Margin="0,12,0,0"
             PlaceholderText="搜索应用、可执行文件或目标输入法"
             TextChanged="SearchBox_TextChanged"

@@ -1287,7 +1287,8 @@ public sealed class AppServices : IAsyncDisposable
                 Volatile.Write(ref _recentGameplayTarget, new RecentGameplayTarget(
                     gameplayContext.Application.Key,
                     snapshot.Window.ProcessName,
-                    DateTimeOffset.UtcNow));
+                    DateTimeOffset.UtcNow,
+                    snapshot.Window.ExecutablePath));
             }
 
             if (!isGameplay)

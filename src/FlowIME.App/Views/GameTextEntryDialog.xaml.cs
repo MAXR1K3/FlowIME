@@ -3,6 +3,11 @@ using FlowIME.Core.Context;
 using FlowIME.Core.Models;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Input;
+using Windows.System;
+using Windows.UI.Core;
 
 namespace FlowIME.App.Views;
 
@@ -10,6 +15,8 @@ public sealed partial class GameTextEntryDialog : ContentDialog
 {
     private readonly RecentGameplayTarget _recent;
     private readonly GameTextEntryProfile? _existing;
+    private readonly List<GameTextEntryKeyGesture> _enterGestures = [];
+    private readonly List<GameTextEntryKeyGesture> _exitGestures = [];
 
     internal GameTextEntryDialog(
         AppServices services,
@@ -20,18 +27,18 @@ public sealed partial class GameTextEntryDialog : ContentDialog
         _recent = recent;
         _existing = existing;
 
-        GameNameText.Text = recent.ProcessName;
-        EnabledToggle.IsOn = existing?.Enabled ?? true;
+        Title = $"{recent.ProcessName} · 游戏聊天";
+        var seed = existing ?? GameTextEntryProfile.CreateDefault(
+            recent.ApplicationIdentityKey,
+            recent.ProcessName);
+        _enterGestures.AddRange(seed.EnterGestures);
+        _exitGestures.AddRange(seed.ExitGestures);
+        EnabledToggle.IsOn = seed.Enabled;
         StandardControlToggle.IsOn =
-            existing?.DetectionMode.HasFlag(GameTextEntryDetectionMode.StandardTextControl) ?? true;
+            seed.DetectionMode.HasFlag(GameTextEntryDetectionMode.StandardTextControl);
         HotkeyProfileToggle.IsOn =
-            existing?.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile) ?? false;
-        EnterGesturesBox.Text = existing is null
-            ? string.Empty
-            : GameTextEntryKeyGestureParser.FormatList(existing.EnterGestures);
-        ExitGesturesBox.Text = existing is null
-            ? string.Empty
-            : GameTextEntryKeyGestureParser.FormatList(existing.ExitGestures);
+            seed.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile);
+        RefreshGestureBoxes();
 
         var targets = BuildTargetOptions(services);
         TargetCombo.ItemsSource = targets;
@@ -61,7 +68,154 @@ public sealed partial class GameTextEntryDialog : ContentDialog
         HotkeyFields.Visibility = enabled ? Visibility.Visible : Visibility.Collapsed;
         EnterGesturesBox.IsEnabled = enabled;
         ExitGesturesBox.IsEnabled = enabled;
+        ClearEnterGesturesButton.IsEnabled = enabled && _enterGestures.Count > 0;
+        ClearExitGesturesButton.IsEnabled = enabled && _exitGestures.Count > 0;
+        SetPresetButtonsEnabled(enabled);
     }
+
+    private void PresetGestureButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not ToggleButton { Tag: string tag } button)
+        {
+            return;
+        }
+
+        var parts = tag.Split(':', 2);
+        if (parts.Length != 2 || !uint.TryParse(parts[1], out var virtualKey))
+        {
+            return;
+        }
+
+        var target = StringComparer.Ordinal.Equals(parts[0], "enter")
+            ? _enterGestures
+            : _exitGestures;
+        var gesture = new GameTextEntryKeyGesture(virtualKey);
+        if (button.IsChecked == true)
+        {
+            if (!target.Contains(gesture))
+            {
+                target.Add(gesture);
+            }
+        }
+        else
+        {
+            target.Remove(gesture);
+        }
+
+        RefreshGestureBoxes();
+        ValidationBar.IsOpen = false;
+    }
+
+    private void GestureBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (!HotkeyProfileToggle.IsOn || sender is not TextBox textBox)
+        {
+            return;
+        }
+
+        if (IsModifierKey(e.Key))
+        {
+            e.Handled = true;
+            return;
+        }
+
+        var gesture = new GameTextEntryKeyGesture(
+            checked((uint)e.Key),
+            ReadModifiers());
+        var target = ReferenceEquals(textBox, EnterGesturesBox)
+            ? _enterGestures
+            : _exitGestures;
+        if (!target.Contains(gesture))
+        {
+            target.Add(gesture);
+        }
+
+        RefreshGestureBoxes();
+        ValidationBar.IsOpen = false;
+        e.Handled = true;
+    }
+
+    private void ClearEnterGesturesButton_Click(object sender, RoutedEventArgs e)
+    {
+        _enterGestures.Clear();
+        RefreshGestureBoxes();
+    }
+
+    private void ClearExitGesturesButton_Click(object sender, RoutedEventArgs e)
+    {
+        _exitGestures.Clear();
+        RefreshGestureBoxes();
+    }
+
+    private void RefreshGestureBoxes()
+    {
+        EnterGesturesBox.Text = GameTextEntryKeyGestureParser.FormatList(_enterGestures);
+        ExitGesturesBox.Text = GameTextEntryKeyGestureParser.FormatList(_exitGestures);
+        if (ClearEnterGesturesButton is not null)
+        {
+            ClearEnterGesturesButton.IsEnabled = HotkeyProfileToggle.IsOn && _enterGestures.Count > 0;
+            ClearExitGesturesButton.IsEnabled = HotkeyProfileToggle.IsOn && _exitGestures.Count > 0;
+            RefreshPresetButtons();
+        }
+    }
+
+    private void RefreshPresetButtons()
+    {
+        SetPresetState(OpenEnterPreset, _enterGestures, 0x0D);
+        SetPresetState(OpenTPreset, _enterGestures, 0x54);
+        SetPresetState(OpenYPreset, _enterGestures, 0x59);
+        SetPresetState(OpenUPreset, _enterGestures, 0x55);
+        SetPresetState(OpenSlashPreset, _enterGestures, 0xBF);
+        SetPresetState(OpenCommaPreset, _enterGestures, 0xBC);
+        SetPresetState(OpenPeriodPreset, _enterGestures, 0xBE);
+        SetPresetState(ExitEnterPreset, _exitGestures, 0x0D);
+        SetPresetState(ExitEscapePreset, _exitGestures, 0x1B);
+    }
+
+    private static void SetPresetState(
+        ToggleButton button,
+        IReadOnlyCollection<GameTextEntryKeyGesture> gestures,
+        uint virtualKey) =>
+        button.IsChecked = gestures.Contains(new GameTextEntryKeyGesture(virtualKey));
+
+    private void SetPresetButtonsEnabled(bool enabled)
+    {
+        foreach (var button in new[]
+        {
+            OpenEnterPreset,
+            OpenTPreset,
+            OpenYPreset,
+            OpenUPreset,
+            OpenSlashPreset,
+            OpenCommaPreset,
+            OpenPeriodPreset,
+            ExitEnterPreset,
+            ExitEscapePreset
+        })
+        {
+            button.IsEnabled = enabled;
+        }
+    }
+
+    private static GameTextEntryModifierKeys ReadModifiers()
+    {
+        var modifiers = GameTextEntryModifierKeys.None;
+        if (IsDown(VirtualKey.Control)) modifiers |= GameTextEntryModifierKeys.Control;
+        if (IsDown(VirtualKey.Menu)) modifiers |= GameTextEntryModifierKeys.Alt;
+        if (IsDown(VirtualKey.Shift)) modifiers |= GameTextEntryModifierKeys.Shift;
+        if (IsDown(VirtualKey.LeftWindows) || IsDown(VirtualKey.RightWindows))
+        {
+            modifiers |= GameTextEntryModifierKeys.Windows;
+        }
+        return modifiers;
+    }
+
+    private static bool IsDown(VirtualKey key) =>
+        (InputKeyboardSource.GetKeyStateForCurrentThread(key) & CoreVirtualKeyStates.Down) != 0;
+
+    private static bool IsModifierKey(VirtualKey key) =>
+        key is VirtualKey.Control or VirtualKey.Menu or VirtualKey.Shift or
+            VirtualKey.LeftWindows or VirtualKey.RightWindows;
 
     private void DeleteProfileButton_Click(object sender, RoutedEventArgs e)
     {
@@ -91,27 +245,13 @@ public sealed partial class GameTextEntryDialog : ContentDialog
             return;
         }
 
-        IReadOnlyList<GameTextEntryKeyGesture> enterGestures;
-        IReadOnlyList<GameTextEntryKeyGesture> exitGestures;
-        try
-        {
-            enterGestures = HotkeyProfileToggle.IsOn
-                ? GameTextEntryKeyGestureParser.ParseList(EnterGesturesBox.Text)
-                : [];
-            exitGestures = HotkeyProfileToggle.IsOn
-                ? GameTextEntryKeyGestureParser.ParseList(ExitGesturesBox.Text)
-                : [];
-
-            if (HotkeyProfileToggle.IsOn &&
-                (enterGestures.Count == 0 || exitGestures.Count == 0))
-            {
-                throw new FormatException("快捷键检测需要至少一个打开键和一个关闭键。");
-            }
-        }
-        catch (FormatException ex)
+        if (HotkeyProfileToggle.IsOn &&
+            (_enterGestures.Count == 0 || _exitGestures.Count == 0))
         {
             args.Cancel = true;
-            ValidationBar.Message = $"快捷键格式不正确：{ex.Message}";
+            ValidationBar.Message = _enterGestures.Count == 0
+                ? "请点击“打开聊天”输入框，然后按下游戏中的聊天键。"
+                : "请点击“发送 / 关闭”输入框，然后按下发送或取消键。";
             ValidationBar.IsOpen = true;
             return;
         }
@@ -129,12 +269,13 @@ public sealed partial class GameTextEntryDialog : ContentDialog
             Id = _existing?.Id ?? $"game-chat:{_recent.ApplicationIdentityKey}",
             ApplicationIdentityKey = _recent.ApplicationIdentityKey,
             ApplicationDisplayName = _recent.ProcessName,
+            ExecutablePath = _recent.ExecutablePath ?? _existing?.ExecutablePath,
             Enabled = EnabledToggle.IsOn,
             DetectionMode = mode,
             ProviderId = target.ProviderId,
             Action = target.Action,
-            EnterGestures = enterGestures,
-            ExitGestures = exitGestures
+            EnterGestures = HotkeyProfileToggle.IsOn ? _enterGestures.ToArray() : [],
+            ExitGestures = HotkeyProfileToggle.IsOn ? _exitGestures.ToArray() : []
         };
     }
 
