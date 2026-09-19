@@ -7,6 +7,9 @@ internal readonly record struct InputStatusOverlayPoint(int X, int Y);
 
 internal static class InputStatusOverlayPlacement
 {
+    internal static nint ResolveAnchor(nint foregroundHwnd, nint focusHwnd) =>
+        focusHwnd != 0 ? focusHwnd : foregroundHwnd;
+
     internal static InputStatusOverlayPoint Resolve(
         InputStatusOverlayPosition position,
         User32Native.Rect workArea,

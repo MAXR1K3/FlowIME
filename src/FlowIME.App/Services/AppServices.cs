@@ -1427,7 +1427,8 @@ public sealed class AppServices : IAsyncDisposable
         _inputStatusOverlay.Show(
             label,
             snapshot.Window.Hwnd,
-            persistent: isGameplay && !isGameTextEntry && label == "US");
+            persistent: isGameplay && !isGameTextEntry && label == "US",
+            focusHwnd: snapshot.Context?.FocusHwnd ?? 0);
     }
 
     private void ScheduleGameplayExitRestore(string? targetProcessName)

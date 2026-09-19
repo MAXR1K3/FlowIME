@@ -154,7 +154,8 @@ public sealed class InputStatusOverlay : IDisposable
         string label,
         nint anchorHwnd,
         bool persistent,
-        TimeSpan? duration = null)
+        TimeSpan? duration = null,
+        nint focusHwnd = 0)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var settings = Volatile.Read(ref _settings);
@@ -175,10 +176,11 @@ public sealed class InputStatusOverlay : IDisposable
                 (duration ?? TimeSpan.FromMilliseconds(1300)).TotalMilliseconds,
                 400,
                 5000));
+        var resolvedAnchor = InputStatusOverlayPlacement.ResolveAnchor(anchorHwnd, focusHwnd);
 
         Volatile.Write(
             ref _pendingPresentation,
-            new Presentation(normalized, anchorHwnd, persistent, milliseconds));
+            new Presentation(normalized, resolvedAnchor, persistent, milliseconds));
 
         var window = Interlocked.CompareExchange(ref _window, IntPtr.Zero, IntPtr.Zero);
         if (window != 0)

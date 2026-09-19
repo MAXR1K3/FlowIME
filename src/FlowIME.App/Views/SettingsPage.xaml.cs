@@ -14,7 +14,10 @@ public sealed partial class SettingsPage : Page
 {
     private readonly DiagnosticsClipboardWriter _diagnosticsClipboard = new();
     private bool _synchronizingStartupToggle;
-    private bool _synchronizingInputStatusOverlayToggle;
+    // XAML raises control change events during InitializeComponent. Keep the guard
+    // active until persisted overlay preferences have been loaded, otherwise the
+    // default control values overwrite the user's saved settings on first visit.
+    private bool _synchronizingInputStatusOverlayToggle = true;
     private bool _synchronizingGameplayKeyboardBaselineToggle;
     private bool _synchronizingGameplayHotkeyToggles;
     private bool _savingHotkeys;

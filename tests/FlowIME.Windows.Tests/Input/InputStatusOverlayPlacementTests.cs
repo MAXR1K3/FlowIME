@@ -104,6 +104,21 @@ public sealed class InputStatusOverlayPlacementTests
         Assert.Equal(770, point.Y);
     }
 
+    [Theory]
+    [InlineData(123, 456, 456)]
+    [InlineData(123, 0, 123)]
+    public void Caret_anchor_prefers_the_focused_control_handle(
+        long foreground,
+        long focus,
+        long expected)
+    {
+        var actual = InputStatusOverlayPlacement.ResolveAnchor(
+            new nint(foreground),
+            new nint(focus));
+
+        Assert.Equal(new nint(expected), actual);
+    }
+
     [Fact]
     public void Caret_bounds_fall_back_to_ui_automation_when_win32_does_not_expose_a_caret()
     {
