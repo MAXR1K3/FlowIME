@@ -1,0 +1,41 @@
+using FlowIME.App.Services;
+
+namespace FlowIME.App.Tests.Services;
+
+public sealed class SingleInstanceCoordinatorTests
+{
+    [Fact]
+    public void Secondary_instance_signals_primary_listener()
+    {
+        var suffix = Guid.NewGuid().ToString("N");
+        var mutexName = $@"Local\FlowIME.Tests.Mutex.{suffix}";
+        var eventName = $@"Local\FlowIME.Tests.Event.{suffix}";
+
+        using var primary = new SingleInstanceCoordinator(mutexName, eventName);
+        using var signaled = new ManualResetEventSlim(false);
+        Assert.True(primary.IsPrimary);
+        primary.StartListening(signaled.Set);
+
+        bool? secondaryWasPrimary = null;
+        Exception? secondaryError = null;
+        var secondaryThread = new Thread(() =>
+        {
+            try
+            {
+                using var secondary = new SingleInstanceCoordinator(mutexName, eventName);
+                secondaryWasPrimary = secondary.IsPrimary;
+                secondary.SignalPrimary();
+            }
+            catch (Exception ex)
+            {
+                secondaryError = ex;
+            }
+        });
+
+        secondaryThread.Start();
+        Assert.True(secondaryThread.Join(TimeSpan.FromSeconds(2)));
+        Assert.Null(secondaryError);
+        Assert.False(secondaryWasPrimary);
+        Assert.True(signaled.Wait(TimeSpan.FromSeconds(2), TestContext.Current.CancellationToken));
+    }
+}

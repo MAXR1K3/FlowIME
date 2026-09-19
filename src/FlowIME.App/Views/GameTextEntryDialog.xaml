@@ -1,0 +1,139 @@
+<ContentDialog
+    x:Class="FlowIME.App.Views.GameTextEntryDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="游戏文字输入"
+    PrimaryButtonText="保存"
+    CloseButtonText="取消"
+    PrimaryButtonStyle="{StaticResource FlowPrimaryButtonStyle}"
+    CloseButtonStyle="{StaticResource FlowSecondaryButtonStyle}"
+    CornerRadius="12"
+    DefaultButton="Primary"
+    HorizontalContentAlignment="Stretch"
+    PrimaryButtonClick="OnPrimaryButtonClick">
+    <ContentDialog.Resources><ResourceDictionary Source="ms-appx:///Themes/Brand.xaml" /></ContentDialog.Resources>
+
+
+    <ScrollViewer MaxHeight="620" VerticalScrollBarVisibility="Auto">
+        <StackPanel x:Name="DialogRoot" MaxWidth="600" Spacing="16">
+            <VisualStateManager.VisualStateGroups>
+                <VisualStateGroup>
+                    <VisualState x:Name="CompactWidth">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="0" />
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="DialogRoot.HorizontalAlignment" Value="Stretch" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState x:Name="WideWidth">
+                        <VisualState.StateTriggers>
+                            <AdaptiveTrigger MinWindowWidth="760" />
+                        </VisualState.StateTriggers>
+                        <VisualState.Setters>
+                            <Setter Target="DialogRoot.HorizontalAlignment" Value="Stretch" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateManager.VisualStateGroups>
+
+            <Border Padding="16" Style="{StaticResource FlowHeroCardStyle}">
+                <Grid ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="40" Height="40" CornerRadius="10" Background="{ThemeResource AccentFillColorTertiaryBrush}">
+                        <FontIcon Glyph="&#xE7FC;" FontSize="18" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                        <TextBlock x:Name="GameNameText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <TextBlock
+                            Text="普通游戏状态仍保持 US；这里只定义进入聊天、搜索或命名输入时的行为。"
+                            Style="{StaticResource FlowMutedTextStyle}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid ColumnSpacing="16" RowSpacing="4">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Spacing="3">
+                    <TextBlock Text="启用此游戏配置" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="停用后保留配置，不再自动切换聊天输入状态。" Style="{StaticResource FlowTertiaryTextStyle}" />
+                </StackPanel>
+                <ToggleSwitch x:Name="EnabledToggle" Style="{StaticResource FlowToggleSwitchStyle}" AutomationProperties.Name="启用配置" Grid.Column="1" VerticalAlignment="Center" />
+            </Grid>
+
+            <StackPanel Spacing="8">
+                <TextBlock Text="检测方式" FontWeight="SemiBold" />
+                <Border Style="{StaticResource FlowCardStyle}">
+                    <StackPanel>
+                        <Grid Padding="14" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="自动识别文字输入框" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="适用于提供标准输入框的游戏。" Style="{StaticResource FlowTertiaryTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch x:Name="StandardControlToggle" Style="{StaticResource FlowToggleSwitchStyle}" AutomationProperties.Name="自动识别文字输入框" Grid.Column="1" VerticalAlignment="Center" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <Grid Padding="14" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="通过聊天快捷键识别" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="适用于无法自动识别的聊天框；快捷键仍会传递给游戏。" Style="{StaticResource FlowTertiaryTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="HotkeyProfileToggle" Style="{StaticResource FlowToggleSwitchStyle}" AutomationProperties.Name="通过聊天快捷键识别"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                Toggled="HotkeyProfileToggle_Toggled" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <Border x:Name="HotkeyFields" Padding="14" Style="{StaticResource FlowInsetCardStyle}">
+                <StackPanel Spacing="12">
+                    <TextBox x:Name="EnterGesturesBox" Header="打开聊天 / 输入" PlaceholderText="例如 Enter, T, Y" />
+                    <TextBox x:Name="ExitGesturesBox" Header="发送 / 关闭输入" PlaceholderText="例如 Enter, Esc" />
+                    <TextBlock Text="多个快捷键用英文逗号分隔；可使用 Ctrl、Alt、Shift、Win 修饰键。" FontSize="12" Style="{StaticResource FlowTertiaryTextStyle}" />
+                </StackPanel>
+            </Border>
+
+            <ComboBox
+                MinHeight="40"
+                x:Name="TargetCombo"
+                Header="文字输入时使用"
+                HorizontalAlignment="Stretch" />
+
+            <InfoBar
+                x:Name="ValidationBar"
+                IsOpen="False"
+                IsClosable="False"
+                Severity="Error"
+                Title="无法保存" />
+
+            <Button
+                x:Name="DeleteProfileButton"
+                HorizontalAlignment="Left"
+                Content="删除此游戏配置"
+                Click="DeleteProfileButton_Click" />
+        </StackPanel>
+    </ScrollViewer>
+</ContentDialog>

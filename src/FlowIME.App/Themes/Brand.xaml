@@ -1,0 +1,62 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+            <ResourceDictionary.ThemeDictionaries>
+                <ResourceDictionary x:Key="Light">
+                    <SolidColorBrush x:Key="AccentButtonBackground" Color="#795139" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#69432F" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#593725" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#795139" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#69432F" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#593725" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#795139" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#69432F" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#593725" />
+                    <SolidColorBrush x:Key="AccentButtonForeground" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#795139" />
+                    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#795139" Opacity="0.9" />
+                    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#795139" Opacity="0.8" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFF" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#FFFFFF" Opacity="0.9" />
+                    <SolidColorBrush x:Key="FlowAppBackgroundBrush" Color="#F5F0E6" />
+                    <SolidColorBrush x:Key="FlowCardBackgroundBrush" Color="#FCFAF5" />
+                    <SolidColorBrush x:Key="FlowCardBorderBrush" Color="#DED5C8" />
+                    <SolidColorBrush x:Key="FlowInsetBackgroundBrush" Color="#EFE8DC" />
+                    <SolidColorBrush x:Key="FlowHeroBackgroundBrush" Color="#F1E9DB" />
+                    <SolidColorBrush x:Key="FlowAccentSoftBrush" Color="#E8E1D5" />
+                    <SolidColorBrush x:Key="FlowSuccessSoftBrush" Color="#E7F0E6" />
+                </ResourceDictionary>
+                <ResourceDictionary x:Key="Default">
+                    <SolidColorBrush x:Key="AccentButtonBackground" Color="#D8B394" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#E5C5AA" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#C29A7C" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOn" Color="#D8B394" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOnPointerOver" Color="#E5C5AA" />
+                    <SolidColorBrush x:Key="ToggleSwitchFillOnPressed" Color="#C29A7C" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOn" Color="#D8B394" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#E5C5AA" />
+                    <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#C29A7C" />
+                    <SolidColorBrush x:Key="AccentButtonForeground" Color="#201A16" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="#201A16" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="#201A16" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOn" Color="#201A16" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPointerOver" Color="#201A16" />
+                    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnPressed" Color="#201A16" />
+                    <SolidColorBrush x:Key="AccentFillColorDefaultBrush" Color="#D8B394" />
+                    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush" Color="#D8B394" Opacity="0.9" />
+                    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush" Color="#D8B394" Opacity="0.8" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#201A16" />
+                    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#201A16" Opacity="0.9" />
+                    <SolidColorBrush x:Key="FlowAppBackgroundBrush" Color="Transparent" />
+                    <SolidColorBrush x:Key="FlowCardBackgroundBrush" Color="#0FFFFFFF" />
+                    <SolidColorBrush x:Key="FlowCardBorderBrush" Color="#18FFFFFF" />
+                    <SolidColorBrush x:Key="FlowInsetBackgroundBrush" Color="#0AFFFFFF" />
+                    <SolidColorBrush x:Key="FlowHeroBackgroundBrush" Color="#2A6F432F" />
+                    <SolidColorBrush x:Key="FlowAccentSoftBrush" Color="#246F432F" />
+                    <SolidColorBrush x:Key="FlowSuccessSoftBrush" Color="#102FA34A" />
+                </ResourceDictionary>
+            </ResourceDictionary.ThemeDictionaries>
+</ResourceDictionary>

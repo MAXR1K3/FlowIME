@@ -1,0 +1,11 @@
+FlowIME UI/UX R3.0 + R3.1 Patch
+
+Base required: FlowIME UIUX R2.2 (P8C.2 feature baseline).
+
+Extract this archive directly over the project root and allow files to be replaced.
+Then run:
+
+  dotnet test -c Debug
+  dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+
+This patch changes UI XAML and UI contract tests only. P8C.2 feature logic remains frozen.

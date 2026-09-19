@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>FlowIME.Probe</AssemblyName>
+    <RootNamespace>FlowIME.Probe</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FlowIME.Core/FlowIME.Core.csproj" />
+    <ProjectReference Include="../FlowIME.Windows/FlowIME.Windows.csproj" />
+  </ItemGroup>
+</Project>

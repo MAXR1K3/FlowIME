@@ -1,0 +1,46 @@
+FlowIME P8B.4.3 — Gameplay Exit Restore + Input Status Overlay
+
+Based on: P8B.4.2 xUnit analyzer fix.
+
+Goals
+1. Close the Gameplay lifecycle: the standard US keyboard used in a game must not
+   leak into the next desktop application after Alt+Tab.
+2. Add a small current-input-state overlay without injecting into the game process.
+
+Gameplay exit restore
+- Adds InputContextTrigger.GameplayExit.
+- Tracks resolved Game -> non-Game transitions.
+- After the new foreground settles, explicitly re-applies its normal application /
+  global-default decision, waits for automation to settle, then re-samples the
+  actual input state.
+- Successful normal automation decisions now request an observation-only refresh,
+  so Home and the overlay reflect the state that was actually applied.
+- Adds bounded diagnostics: restore count, last target, time and result.
+
+Input status overlay
+- Uses an external native Win32 popup; no DLL/game injection and no D3D hook.
+- Topmost, no-activate, click-through, tool-window style; excluded from Alt+Tab.
+- Shows a compact label: 中 / EN / US.
+- Normal desktop state is transient (~1.3s).
+- Verified Gameplay US state remains visible until the foreground changes.
+- Anchors to the monitor that owns the foreground application and scales with DPI.
+- Existing Settings > 常规 > 输入状态提示 placeholder is now a real
+  "输入状态浮层" master switch, enabled by default.
+- Settings schema moves from v2 to v3; v1/v2 files automatically gain the default
+  overlay setting and remain compatible.
+
+Privacy / game-safety boundary
+- Overlay observes only input mode/layout and foreground window identity already
+  used by FlowIME.
+- It does not inspect typed text, URLs, clipboard data or game memory.
+- It does not inject into the game process. Exclusive-fullscreen titles may prevent
+  ordinary topmost windows from rendering above the swap chain; that case should be
+  treated separately rather than adding injection.
+
+Validation focus
+- Enter Gameplay -> US keyboard baseline activates.
+- Alt+Tab to Chrome/Codex/Notepad -> that application's rule/global default should
+  be restored instead of retaining US.
+- Gameplay overlay: US stays visible and does not steal focus/mouse input.
+- Desktop app transition: 中 / EN / US appears briefly.
+- Win+Space/Ctrl+Space gameplay guard behavior remains unchanged.

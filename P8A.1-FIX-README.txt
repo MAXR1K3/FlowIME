@@ -1,0 +1,7 @@
+FlowIME P8A.1 compile fix
+
+Fixes CS1739 in ForegroundContextService.cs:
+ContextDetectionRequest primary-constructor named arguments are case-sensitive.
+Changed focusHwnd/timestamp to FocusHwnd/Timestamp.
+
+No runtime behavior, UI, rules, providers, or context architecture changed.

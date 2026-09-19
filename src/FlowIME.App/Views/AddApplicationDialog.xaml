@@ -1,0 +1,261 @@
+<ContentDialog
+    x:Class="FlowIME.App.Views.AddApplicationDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:viewModels="using:FlowIME.App.ViewModels"
+    Title="添加应用规则"
+    PrimaryButtonText="创建规则"
+    CloseButtonText="取消"
+    PrimaryButtonStyle="{StaticResource FlowPrimaryButtonStyle}"
+    CloseButtonStyle="{StaticResource FlowSecondaryButtonStyle}"
+    CornerRadius="12"
+    DefaultButton="Primary"
+    HorizontalContentAlignment="Stretch"
+    IsPrimaryButtonEnabled="{Binding CanCreateRule}">
+    <ContentDialog.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="ms-appx:///Themes/Brand.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <!-- The default WinUI template caps dialogs at 548 effective pixels.
+                 Override the template resources; setting the control properties
+                 alone does not widen the template's BackgroundElement. -->
+            <x:Double x:Key="ContentDialogMinWidth">900</x:Double>
+            <x:Double x:Key="ContentDialogMaxWidth">960</x:Double>
+        </ResourceDictionary>
+    </ContentDialog.Resources>
+
+    <Grid x:Name="DialogRoot" MinWidth="840" MaxWidth="900" ColumnSpacing="20">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*" />
+            <ColumnDefinition Width="3*" />
+        </Grid.ColumnDefinitions>
+
+        <Grid x:Name="ApplicationPickerColumn" Grid.Column="0" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Spacing="5">
+                <TextBlock
+                    Text="选择应用"
+                    FontSize="16"
+                    FontWeight="SemiBold"
+                    TextWrapping="Wrap" />
+                <TextBlock
+                    Text="选择可见应用、后台进程，或浏览尚未运行的可执行文件。"
+                    Style="{StaticResource FlowMutedTextStyle}" />
+                <TextBox
+                    Margin="0,6,0,0"
+                    AutomationProperties.Name="搜索应用或进程"
+                    PlaceholderText="搜索名称、进程或路径"
+                    Text="{Binding SearchQuery, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button
+                    x:Name="BrowseExecutableButton"
+                    Style="{StaticResource FlowSecondaryButtonStyle}"
+                    HorizontalAlignment="Left"
+                    Click="BrowseExecutable_Click"
+                    Content="浏览可执行文件…" />
+                <TextBlock
+                    x:Name="BrowseErrorText"
+                    Visibility="Collapsed"
+                    Foreground="{ThemeResource SystemFillColorCriticalBrush}"
+                    FontSize="12"
+                    TextWrapping="Wrap" />
+            </StackPanel>
+
+            <ListView
+                x:Name="ApplicationsList"
+                Grid.Row="1"
+                Height="360"
+                AutomationProperties.Name="可选应用"
+                ItemsSource="{Binding ApplicationItems}"
+                SelectedItem="{Binding SelectedItem, Mode=TwoWay}"
+                SelectionMode="Single">
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="4" />
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="viewModels:RunningApplicationItemViewModel">
+                        <Grid Padding="6,8" ColumnSpacing="12" ToolTipService.ToolTip="{x:Bind ExecutablePath, Mode=OneWay}">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="40" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border
+                                Width="36"
+                                Height="36"
+                                VerticalAlignment="Center"
+                                CornerRadius="8"
+                                Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                                <Grid>
+                                    <FontIcon
+                                        Glyph="&#xE7C3;"
+                                        FontSize="16"
+                                        Visibility="{x:Bind FallbackIconVisibility, Mode=OneWay}"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center" />
+                                    <Image
+                                        Source="{x:Bind Icon, Mode=OneWay}"
+                                        Visibility="{x:Bind IconVisibility, Mode=OneWay}"
+                                        Width="26"
+                                        Height="26"
+                                        Stretch="Uniform" />
+                                </Grid>
+                            </Border>
+
+                            <StackPanel Grid.Column="1" Spacing="2">
+                                <Grid ColumnSpacing="8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock
+                                        Text="{x:Bind DisplayName, Mode=OneWay}"
+                                        FontSize="15"
+                                        FontWeight="SemiBold"
+                                        TextWrapping="Wrap" />
+                                    <TextBlock
+                                        Grid.Column="1"
+                                        Text="{x:Bind SourceLabel, Mode=OneWay}"
+                                        FontSize="11"
+                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                                <TextBlock
+                                    Text="{x:Bind ProcessName, Mode=OneWay}"
+                                    FontSize="12"
+                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                    TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <Border
+            x:Name="RuleSettingsColumn"
+            Grid.Column="1"
+            Padding="18"
+            VerticalAlignment="Stretch"
+            Style="{StaticResource FlowInsetCardStyle}">
+            <StackPanel Spacing="14">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="进入应用时" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="为左侧选中的应用设置输入法和输入状态。" Style="{StaticResource FlowMutedTextStyle}" />
+                </StackPanel>
+
+                <Grid x:Name="RuleOptionsGrid" RowSpacing="12">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <StackPanel Spacing="5">
+                        <TextBlock Text="输入法" FontSize="12" Style="{StaticResource FlowMutedTextStyle}" />
+                        <ComboBox
+                            MinHeight="40"
+                            HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="输入法"
+                            ItemsSource="{Binding ProviderOptions}"
+                            DisplayMemberPath="Label"
+                            SelectedValuePath="ProviderId"
+                            SelectedValue="{Binding SelectedProviderId, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <StackPanel x:Name="InputStateOptions" Grid.Row="1" Spacing="5">
+                        <TextBlock Text="输入状态" FontSize="12" Style="{StaticResource FlowMutedTextStyle}" />
+                        <ComboBox
+                            MinHeight="40"
+                            HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="输入状态"
+                            ItemsSource="{Binding ActionOptions}"
+                            DisplayMemberPath="Label"
+                            SelectedItem="{Binding SelectedActionOption, Mode=TwoWay}" />
+                    </StackPanel>
+                </Grid>
+
+                <Expander Header="高级匹配" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" IsExpanded="False">
+                    <StackPanel Spacing="12">
+                        <TextBox
+                            Header="规则名称"
+                            PlaceholderText="用于规则列表显示"
+                            Text="{Binding CustomDisplayName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="可执行文件" FontSize="12" Style="{StaticResource FlowMutedTextStyle}" />
+                            <TextBlock
+                                Text="{Binding SelectedApplication.ExecutablePath}"
+                                FontFamily="Cascadia Mono"
+                                FontSize="11"
+                                TextWrapping="Wrap"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+
+                        <Grid Padding="0,10,0,0" RowSpacing="10" ColumnSpacing="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock
+                                Grid.ColumnSpan="2"
+                                Text="所有已填写条件必须同时满足。留空表示不限制该项。"
+                                Style="{StaticResource FlowMutedTextStyle}" />
+                            <TextBox
+                                Grid.Row="1"
+                                Header="进程名（精确）"
+                                PlaceholderText="chrome"
+                                Text="{Binding ProcessName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox
+                                Grid.Row="1"
+                                Grid.Column="1"
+                                Header="窗口类（精确）"
+                                PlaceholderText="Chrome_WidgetWin_1"
+                                Text="{Binding WindowClass, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <TextBox
+                                Grid.Row="2"
+                                Header="窗口标题包含"
+                                PlaceholderText="Docs"
+                                Text="{Binding WindowTitleContains, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                            <NumberBox
+                                Grid.Row="2"
+                                Grid.Column="1"
+                                Header="优先级"
+                                Minimum="0"
+                                Maximum="10000"
+                                SpinButtonPlacementMode="Compact"
+                                Value="{Binding PreviewPriority, Mode=TwoWay}" />
+                            <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="匹配预览" FontWeight="SemiBold" />
+                            <TextBlock
+                                Grid.Row="4"
+                                Grid.ColumnSpan="2"
+                                Text="{Binding MatchPreview}"
+                                FontFamily="Cascadia Mono"
+                                FontSize="11"
+                                TextWrapping="Wrap" />
+                            <InfoBar
+                                Grid.Row="5"
+                                Grid.ColumnSpan="2"
+                                IsOpen="{Binding HasConflictPreview}"
+                                IsClosable="False"
+                                Severity="Warning"
+                                Title="规则关系提示"
+                                Message="{Binding ConflictPreview}" />
+                        </Grid>
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </Border>
+    </Grid>
+</ContentDialog>

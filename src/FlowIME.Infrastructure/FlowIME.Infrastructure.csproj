@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>FlowIME.Infrastructure</AssemblyName>
+    <RootNamespace>FlowIME.Infrastructure</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FlowIME.Core/FlowIME.Core.csproj" />
+  </ItemGroup>
+</Project>

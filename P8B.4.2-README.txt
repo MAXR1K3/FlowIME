@@ -1,0 +1,16 @@
+FlowIME P8B.4.2 - xUnit analyzer fix
+
+Baseline: P8B.4.1
+Change scope: tests only.
+
+Fix:
+- Replace Assert.True(signal.Source.StartsWith(...)) with xUnit's dedicated Assert.StartsWith assertion to satisfy xUnit2009.
+- No production code under src/ was changed.
+
+Validation performed in packaging environment:
+- Scanned tests for Assert.True/False wrapping StartsWith/EndsWith/Contains patterns; no additional equivalent misuse remains.
+- Verified src/ is byte-identical to P8B.4.1.
+
+Run on Windows:
+  dotnet test -c Debug
+  dotnet run --project .\\src\\FlowIME.App\\FlowIME.App.csproj -c Debug

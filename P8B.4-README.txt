@@ -1,0 +1,55 @@
+FlowIME P8B.4 - Gameplay US Keyboard Baseline
+=============================================
+
+Goal
+----
+When a foreground window has been positively classified as Game, FlowIME can
+establish a real standard US keyboard input locale as the gameplay baseline.
+This is distinct from putting Microsoft Pinyin into English conversion mode.
+
+Behavior
+--------
+1. The user must already have the standard English (United States) / US keyboard
+   enabled in Windows. FlowIME does not install languages or keyboard layouts.
+2. When Game is active and GameTextEntry is not active:
+   - ordinary application/global IME rules are explicitly vetoed by a context
+     policy so they cannot fight the gameplay baseline;
+   - FlowIME posts WM_INPUTLANGCHANGEREQUEST to the focused game window, falling
+     back to the game's top-level HWND when no focus HWND is available;
+   - the target is the standard US layout (KLID 00000409).
+3. Gameplay Hotkey Guard remains a separate layer and can block Win+Space /
+   Ctrl+Space after the baseline is established.
+4. Leaving Game removes the context policy. Existing application/global rules
+   resume on the next normal foreground/focus re-evaluation.
+5. GameTextEntry is intentionally excluded so a later text-entry policy can
+   temporarily select a chat/text input method.
+
+Safety
+------
+- No language pack or keyboard is installed automatically.
+- No registry language preference is modified.
+- If the standard US keyboard is unavailable, P8B.4 does not override existing
+  application/global rule semantics.
+- WM_INPUTLANGCHANGEREQUEST can be rejected by the target application; diagnostics
+  expose request failures and the most recent baseline outcome.
+
+Settings
+--------
+Settings > 游戏保护 > 游戏中使用美式键盘（US）
+
+Diagnostics
+-----------
+gameplayKeyboardBaselineEnabled
+gameplayKeyboardBaselineAutomationEnabled
+gameplayKeyboardBaselineUsAvailable
+gameplayKeyboardBaselineTarget
+gameplayKeyboardBaselineLastObserved
+gameplayKeyboardBaselineActive
+gameplayKeyboardBaselineGameContext
+gameplayKeyboardBaselineGameTextEntry
+gameplayKeyboardBaselineOutcome
+gameplayKeyboardBaselineError
+gameplayKeyboardBaselineProcess
+gameplayKeyboardBaselineAppliedCount
+gameplayKeyboardBaselineLastAttemptAt
+gameplayKeyboardBaselineLastAppliedAt

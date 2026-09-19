@@ -1,0 +1,174 @@
+<ContentDialog
+    x:Class="FlowIME.App.Views.EditRuleDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="编辑规则"
+    PrimaryButtonText="保存"
+    CloseButtonText="取消"
+    PrimaryButtonStyle="{StaticResource FlowPrimaryButtonStyle}"
+    CloseButtonStyle="{StaticResource FlowSecondaryButtonStyle}"
+    CornerRadius="12"
+    DefaultButton="Primary"
+    HorizontalContentAlignment="Stretch">
+    <ContentDialog.Resources><ResourceDictionary Source="ms-appx:///Themes/Brand.xaml" /></ContentDialog.Resources>
+
+
+    <StackPanel x:Name="DialogRoot" MaxWidth="520" Spacing="16">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup>
+                <VisualState x:Name="CompactWidth">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="DialogRoot.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="EnabledToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="EnabledToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="EnabledToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="EnabledToggle.HorizontalAlignment" Value="Left" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideWidth">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="720" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="DialogRoot.HorizontalAlignment" Value="Stretch" />
+                        <Setter Target="EnabledToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="EnabledToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="EnabledToggle.Margin" Value="0" />
+                        <Setter Target="EnabledToggle.HorizontalAlignment" Value="Right" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <Border Padding="14" Style="{StaticResource FlowInsetCardStyle}">
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="36" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border
+                    Width="36"
+                    Height="36"
+                    CornerRadius="8"
+                    Background="{ThemeResource ControlFillColorSecondaryBrush}">
+                    <FontIcon
+                        Glyph="&#xE7C3;"
+                        FontSize="16"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center" />
+                </Border>
+                <StackPanel Grid.Column="1" Spacing="3">
+                    <TextBlock
+                        Text="{Binding DisplayName}"
+                        FontSize="17"
+                        FontWeight="SemiBold"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Text="{Binding ExecutablePath}"
+                        FontFamily="Cascadia Mono"
+                        FontSize="11"
+                        Foreground="{ThemeResource TextFillColorTertiaryBrush}"
+                        TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <Grid ColumnSpacing="12" RowSpacing="0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel Spacing="3">
+                <TextBlock Text="启用这条规则" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock
+                    Text="关闭后会保留配置，但不再参与应用匹配。"
+                    Style="{StaticResource FlowMutedTextStyle}" />
+            </StackPanel>
+            <ToggleSwitch
+                x:Name="EnabledToggle" Style="{StaticResource FlowToggleSwitchStyle}" AutomationProperties.Name="启用配置"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                IsOn="{Binding Enabled, Mode=TwoWay}" />
+        </Grid>
+
+        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="输入法" FontWeight="SemiBold" />
+            <ComboBox
+                MinHeight="40"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.Name="输入法"
+                ItemsSource="{Binding ProviderOptions}"
+                DisplayMemberPath="Label"
+                SelectedValuePath="ProviderId"
+                SelectedValue="{Binding SelectedProviderId, Mode=TwoWay}" />
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock Text="输入状态" FontWeight="SemiBold" />
+            <ComboBox
+                MinHeight="40"
+                HorizontalAlignment="Stretch"
+                AutomationProperties.Name="输入状态"
+                ItemsSource="{Binding ActionOptions}"
+                DisplayMemberPath="Label"
+                SelectedItem="{Binding SelectedActionOption, Mode=TwoWay}" />
+        </StackPanel>
+
+        <Expander Header="高级匹配" IsExpanded="False">
+            <Grid Padding="0,10,0,0" RowSpacing="10" ColumnSpacing="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Grid.ColumnSpan="2"
+                    Text="所有已填写条件必须同时满足。提高宽泛规则的优先级可能覆盖更具体的规则。"
+                    Style="{StaticResource FlowMutedTextStyle}" />
+                <TextBox Grid.Row="1" Header="进程名（精确）" Text="{Binding ProcessName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox Grid.Row="1" Grid.Column="1" Header="窗口类（精确）" Text="{Binding WindowClass, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <TextBox Grid.Row="2" Header="窗口标题包含" Text="{Binding WindowTitleContains, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <NumberBox
+                    Grid.Row="2"
+                    Grid.Column="1"
+                    Header="优先级"
+                    Minimum="0"
+                    Maximum="10000"
+                    SpinButtonPlacementMode="Compact"
+                    Value="{Binding Priority, Mode=TwoWay}" />
+                <TextBlock Grid.Row="3" Grid.ColumnSpan="2" Text="匹配预览" FontWeight="SemiBold" />
+                <TextBlock Grid.Row="4" Grid.ColumnSpan="2" Text="{Binding MatchPreview}" FontFamily="Cascadia Mono" FontSize="11" TextWrapping="Wrap" />
+                <InfoBar
+                    Grid.Row="5"
+                    Grid.ColumnSpan="2"
+                    IsOpen="{Binding HasConflictPreview}"
+                    IsClosable="False"
+                    Severity="Warning"
+                    Title="规则关系提示"
+                    Message="{Binding ConflictPreview}" />
+            </Grid>
+        </Expander>
+
+        <TextBlock
+            Text="“保持”表示 FlowIME 只识别该应用，不主动改变当前中文 / 英文状态。"
+            FontSize="12"
+            Style="{StaticResource FlowTertiaryTextStyle}" />
+    </StackPanel>
+</ContentDialog>

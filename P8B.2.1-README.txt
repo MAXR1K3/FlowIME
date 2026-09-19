@@ -1,0 +1,17 @@
+FlowIME P8B.2.1 - Gameplay Apply Diagnostics
+================================================
+
+Base: P8B.2 gameplay eligibility.
+
+What changed
+------------
+- Diagnostics only: recentDecision lines now include provider, action and the exact backend error code.
+- No Gameplay input policy is registered.
+- No provider/backend mutation logic changed.
+
+Validation
+----------
+1. dotnet test -c Debug
+2. dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+3. Enter the same game long enough to reproduce ApplyFailed.
+4. Copy diagnostics and send the recentDecision lines containing Resonance / ApplyFailed.

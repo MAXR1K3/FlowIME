@@ -1,0 +1,575 @@
+<Page
+    x:Class="FlowIME.App.Views.SettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:layout="using:FlowIME.App.Layout"
+    Loaded="SettingsPage_Loaded">
+
+    <ScrollViewer MaxWidth="{StaticResource FlowPageContentMaxWidth}" HorizontalAlignment="Stretch"
+        HorizontalScrollBarVisibility="Disabled"
+        HorizontalScrollMode="Disabled"
+        VerticalScrollBarVisibility="Auto"
+        VerticalScrollMode="Auto"
+        HorizontalContentAlignment="Stretch">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="SettingsStructureStates">
+                <VisualState x:Name="CompactSettingsStructure">
+                    <VisualState.StateTriggers>
+                        <layout:ContentWidthTrigger TargetElement="{x:Bind PageContent}" MinWidth="0" MaxWidth="620" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="StartupToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="StartupToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="StartupToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="StartupToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="TrayToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="TrayToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="TrayToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="InputStatusOverlayToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="InputStatusOverlayToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="InputStatusOverlayToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="InputStatusOverlayToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="GameplayKeyboardBaselineToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="GameplayKeyboardBaselineToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="GameplayKeyboardBaselineToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="GameplayKeyboardBaselineToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="GameplayHotkeyGuardToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="GameplayHotkeyGuardToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="GameplayHotkeyGuardToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="GameplayHotkeyGuardToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="WinSpaceToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="WinSpaceToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="WinSpaceToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="WinSpaceToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="CtrlSpaceToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="CtrlSpaceToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="CtrlSpaceToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="CtrlSpaceToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="LegacyHotkeyToggle.(Grid.Row)" Value="1" />
+                        <Setter Target="LegacyHotkeyToggle.(Grid.Column)" Value="0" />
+                        <Setter Target="LegacyHotkeyToggle.Margin" Value="0,10,0,0" />
+                        <Setter Target="LegacyHotkeyToggle.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Row)" Value="1" />
+                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Column)" Value="0" />
+                        <Setter Target="ConfigureGameTextEntryButton.Margin" Value="0,12,0,0" />
+                        <Setter Target="ConfigureGameTextEntryButton.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="1" />
+                        <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="0" />
+                        <Setter Target="CopyDiagnosticsButton.Margin" Value="0,12,0,0" />
+                        <Setter Target="CopyDiagnosticsButton.HorizontalAlignment" Value="Left" />
+
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="DesktopSettingsStructure">
+                    <VisualState.StateTriggers>
+                        <layout:ContentWidthTrigger TargetElement="{x:Bind PageContent}" MinWidth="620" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="StartupToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="StartupToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="StartupToggle.Margin" Value="0" />
+                        <Setter Target="StartupToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="TrayToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="TrayToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="TrayToggle.Margin" Value="0" />
+                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="InputStatusOverlayToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="InputStatusOverlayToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="InputStatusOverlayToggle.Margin" Value="0" />
+                        <Setter Target="InputStatusOverlayToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="GameplayKeyboardBaselineToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="GameplayKeyboardBaselineToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="GameplayKeyboardBaselineToggle.Margin" Value="0" />
+                        <Setter Target="GameplayKeyboardBaselineToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="GameplayHotkeyGuardToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="GameplayHotkeyGuardToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="GameplayHotkeyGuardToggle.Margin" Value="0" />
+                        <Setter Target="GameplayHotkeyGuardToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="WinSpaceToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="WinSpaceToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="WinSpaceToggle.Margin" Value="0" />
+                        <Setter Target="WinSpaceToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="CtrlSpaceToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="CtrlSpaceToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="CtrlSpaceToggle.Margin" Value="0" />
+                        <Setter Target="CtrlSpaceToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="LegacyHotkeyToggle.(Grid.Row)" Value="0" />
+                        <Setter Target="LegacyHotkeyToggle.(Grid.Column)" Value="1" />
+                        <Setter Target="LegacyHotkeyToggle.Margin" Value="0" />
+                        <Setter Target="LegacyHotkeyToggle.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Row)" Value="0" />
+                        <Setter Target="ConfigureGameTextEntryButton.(Grid.Column)" Value="1" />
+                        <Setter Target="ConfigureGameTextEntryButton.Margin" Value="0" />
+                        <Setter Target="ConfigureGameTextEntryButton.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="0" />
+                        <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="1" />
+                        <Setter Target="CopyDiagnosticsButton.Margin" Value="0" />
+                        <Setter Target="CopyDiagnosticsButton.HorizontalAlignment" Value="Right" />
+
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="SettingsSpacingStates">
+                <VisualState x:Name="CompactSettingsSpacing">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PageContent.Padding" Value="16,20,16,28" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="ComfortableSettingsSpacing">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="760" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PageContent.Padding" Value="24,24,24,32" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WideSettingsSpacing">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PageContent.Padding" Value="32,28,32,40" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+
+        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowSettingsContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Stretch">
+            <StackPanel Spacing="5">
+                <TextBlock x:Name="PageTitle" Text="设置" Style="{StaticResource FlowPageTitleStyle}" />
+                <TextBlock
+                    x:Name="PageSubtitle"
+                    Text="控制启动、状态提示与诊断行为。"
+                    Style="{StaticResource FlowPageSubtitleStyle}" />
+            </StackPanel>
+
+            <InfoBar x:Name="SettingsFeedbackBar" IsOpen="False" Visibility="Collapsed"
+                IsClosable="True" Closed="SettingsFeedbackBar_Closed"
+                AutomationProperties.LiveSetting="Polite" />
+
+            <StackPanel x:Name="GeneralSection" Spacing="10">
+                <TextBlock Text="常规" Style="{StaticResource FlowSectionTitleStyle}" />
+                <Border Style="{StaticResource FlowCardStyle}">
+                    <StackPanel>
+                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="随 Windows 登录启动" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="StartupStatusText"
+                                    Text="登录后在后台启动，不弹出主窗口。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="StartupToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="随 Windows 登录启动"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Toggled="StartupToggle_Toggled" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="关闭窗口后继续运行" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    Text="关闭主窗口会隐藏到系统托盘；只有从托盘菜单选择“退出”才结束 FlowIME。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="TrayToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="关闭窗口后继续运行"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                IsOn="True"
+                                IsEnabled="False" />
+                        </Grid>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="OverlaySection" Spacing="10">
+                <TextBlock Text="状态提示" Style="{StaticResource FlowSectionTitleStyle}" />
+                <Border Style="{StaticResource FlowCardStyle}">
+                    <StackPanel>
+                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="输入状态浮层" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="InputStatusOverlayStatusText"
+                                    Text="状态变化时显示中 / EN / US；游戏中的 US 状态保持可见。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="InputStatusOverlayToggle"
+                                Style="{StaticResource FlowToggleSwitchStyle}"
+                                AutomationProperties.Name="输入状态浮层"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Toggled="InputStatusOverlayToggle_Toggled" />
+                        </Grid>
+
+                        <Rectangle Height="1" Margin="18,0" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <StackPanel x:Name="InputStatusOverlayPersonalizationPanel" Padding="18" Spacing="14">
+                            <StackPanel Spacing="3">
+                                <TextBlock Text="外观与位置" FontWeight="SemiBold" />
+                                <TextBlock Text="选择屏幕固定位置，或让浮层跟随当前输入光标；应用未公开光标位置时自动回到底部居中。" Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+
+                            <Grid ColumnSpacing="18" RowSpacing="12">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="220" />
+                                </Grid.ColumnDefinitions>
+
+                                <TextBlock Text="显示位置" VerticalAlignment="Center" />
+                                <ComboBox
+                                    x:Name="InputStatusOverlayPositionComboBox"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="浮层显示位置"
+                                    SelectionChanged="InputStatusOverlayPreference_Changed">
+                                    <ComboBoxItem Content="跟随输入光标" />
+                                    <ComboBoxItem Content="左上角" />
+                                    <ComboBoxItem Content="顶部居中" />
+                                    <ComboBoxItem Content="右上角" />
+                                    <ComboBoxItem Content="屏幕中央" />
+                                    <ComboBoxItem Content="左下角" />
+                                    <ComboBoxItem Content="底部居中" />
+                                    <ComboBoxItem Content="右下角" />
+                                </ComboBox>
+
+                                <TextBlock Grid.Row="1" Text="浮层大小" VerticalAlignment="Center" />
+                                <ComboBox
+                                    x:Name="InputStatusOverlaySizeComboBox"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="浮层大小"
+                                    SelectionChanged="InputStatusOverlayPreference_Changed">
+                                    <ComboBoxItem Content="小" />
+                                    <ComboBoxItem Content="中" />
+                                    <ComboBoxItem Content="大" />
+                                </ComboBox>
+
+                                <StackPanel Grid.Row="2" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="不透明度" />
+                                    <TextBlock x:Name="InputStatusOverlayOpacityText" Text="92%" Style="{StaticResource FlowMutedTextStyle}" />
+                                </StackPanel>
+                                <Slider
+                                    x:Name="InputStatusOverlayOpacitySlider"
+                                    Grid.Row="2"
+                                    Grid.Column="1"
+                                    Minimum="40"
+                                    Maximum="100"
+                                    StepFrequency="1"
+                                    AutomationProperties.Name="浮层不透明度"
+                                    ValueChanged="InputStatusOverlayOpacitySlider_ValueChanged" />
+
+                                <StackPanel Grid.Row="3" Spacing="2" VerticalAlignment="Center">
+                                    <TextBlock Text="平滑动效" />
+                                    <TextBlock Text="淡入淡出并轻微位移；关闭后立即显示。" Style="{StaticResource FlowMutedTextStyle}" />
+                                </StackPanel>
+                                <ToggleSwitch
+                                    x:Name="InputStatusOverlayAnimationsToggle"
+                                    Grid.Row="3"
+                                    Grid.Column="1"
+                                    HorizontalAlignment="Right"
+                                    Style="{StaticResource FlowToggleSwitchStyle}"
+                                    AutomationProperties.Name="浮层平滑动效"
+                                    Toggled="InputStatusOverlayPreference_Changed" />
+                            </Grid>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="GameProtectionSection" Spacing="10" Visibility="Collapsed">
+                <Border Padding="20" Style="{StaticResource FlowHeroCardStyle}">
+                    <Grid ColumnSpacing="14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="48" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Border Width="44" Height="44" CornerRadius="12" Background="{ThemeResource FlowAccentSoftBrush}">
+                            <FontIcon Glyph="&#xE7FC;" FontSize="20" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="游戏保护" FontSize="19" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock
+                                Text="游戏普通状态保持 US 键盘，并阻止输入法快捷键误触；离开游戏后自动恢复桌面应用规则。"
+                                Style="{StaticResource FlowMutedTextStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource FlowCardStyle}">
+                    <StackPanel>
+                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="游戏中使用美式键盘（US）" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="GameplayKeyboardBaselineStatusText"
+                                    Text="游戏中使用美式键盘，避免中文候选框干扰操作。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="GameplayKeyboardBaselineToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="游戏中使用美式键盘"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Toggled="GameplayKeyboardBaselineToggle_Toggled" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="游戏内阻止输入法快捷键" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="GameplayHotkeyStatusText"
+                                    Text="只在识别到游戏场景时拦截容易误触的输入法切换组合键。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="GameplayHotkeyGuardToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="游戏内阻止输入法快捷键"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Toggled="GameplayHotkeyToggle_Toggled" />
+                        </Grid>
+
+                        <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="快捷键保护范围" IsExpanded="False">
+                            <StackPanel Background="{ThemeResource FlowInsetBackgroundBrush}">
+                                <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Text="阻止 Win + Space" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="阻止 Windows 输入语言面板在游戏中被误触。" Style="{StaticResource FlowMutedTextStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="WinSpaceToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="阻止 Win + Space"
+                                        Grid.Column="1"
+                                        IsEnabled="False"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        Toggled="GameplayHotkeyToggle_Toggled" />
+                                </Grid>
+
+                                <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                                <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock Text="阻止 Ctrl + Space" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                        <TextBlock Text="阻止中 / 英文模式快捷切换在游戏中被误触。" Style="{StaticResource FlowMutedTextStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="CtrlSpaceToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="阻止 Ctrl + Space"
+                                        Grid.Column="1"
+                                        IsEnabled="False"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        Toggled="GameplayHotkeyToggle_Toggled" />
+                                </Grid>
+
+                                <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                                <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+                                    <StackPanel Spacing="3" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="传统语言切换快捷键" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                            <Border Style="{StaticResource FlowPillStyle}">
+                                                <TextBlock Text="可选" FontSize="11" />
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="包括 Alt + Shift 与 Ctrl + Shift；它们可能被游戏使用，因此默认关闭。" Style="{StaticResource FlowMutedTextStyle}" />
+                                    </StackPanel>
+                                    <ToggleSwitch
+                                        x:Name="LegacyHotkeyToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="传统语言切换快捷键"
+                                        Grid.Column="1"
+                                        IsEnabled="False"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right"
+                                        Toggled="GameplayHotkeyToggle_Toggled" />
+                                </Grid>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="GameTextEntrySection" Spacing="10" Visibility="Collapsed">
+                <TextBlock Text="游戏文字输入" Style="{StaticResource FlowSectionTitleStyle}" />
+                <Border Padding="18" Style="{StaticResource FlowCardStyle}">
+                    <Grid ColumnSpacing="20" RowSpacing="4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="聊天 / 搜索 / 命名输入" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock
+                                x:Name="GameTextEntryProfileStatusText"
+                                Text="先运行一次游戏，FlowIME 会记住最近识别到的游戏，再为它配置文字输入方式。"
+                                Style="{StaticResource FlowMutedTextStyle}" />
+                        </StackPanel>
+                        <Button
+                            x:Name="ConfigureGameTextEntryButton"
+                            Grid.Column="1"
+                            Style="{StaticResource FlowSecondaryButtonStyle}"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Right"
+                            Content="配置最近游戏"
+                            Click="ConfigureGameTextEntryButton_Click" />
+                    </Grid>
+                </Border>
+            </StackPanel>
+
+            <StackPanel x:Name="DiagnosticsSection" Spacing="10">
+                <TextBlock Text="高级" Style="{StaticResource FlowSectionTitleStyle}" />
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="诊断与排错" IsExpanded="False">
+                    <Border Padding="18" Background="{ThemeResource FlowCardBackgroundBrush}" BorderBrush="{ThemeResource FlowCardBorderBrush}" BorderThickness="1" CornerRadius="0,0,12,12">
+                        <Grid ColumnSpacing="20" RowSpacing="4">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="诊断信息" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="DiagnosticsStatusText"
+                                    Text="复制当前运行状态、规则恢复状态与日志信息；不包含键入内容或剪贴板。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <Button
+                                x:Name="CopyDiagnosticsButton"
+                                Grid.Column="1"
+                                Style="{StaticResource FlowSecondaryButtonStyle}"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Content="复制诊断信息"
+                                Click="CopyDiagnosticsButton_Click" />
+                        </Grid>
+                    </Border>
+                </Expander>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>

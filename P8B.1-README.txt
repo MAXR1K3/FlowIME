@@ -1,0 +1,28 @@
+FlowIME P8B.1 - Fullscreen Observation
+======================================
+
+Baseline: accepted P8A.1 Context Awareness Foundation.
+
+P8B.1 adds the first production context detector:
+- reliable Win32/DWM fullscreen geometry detection
+- DWM extended-frame bounds with GetWindowRect fallback
+- visible/minimized/cloaked guards
+- physical monitor-bounds comparison with 4px edge tolerance
+- multi-monitor negative-coordinate support
+- Fullscreen context signal appears in existing diagnostics/journal
+
+Important: P8B.1 is observation-only.
+It does NOT classify every fullscreen app as a game and does NOT force English.
+Application rules/global default/provider behavior stay unchanged.
+
+Windows gate:
+  dotnet test -c Debug
+  dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+
+Real-machine observation:
+  Settings -> Diagnostics -> Copy diagnostics
+  ordinary window: currentContextSignals=Application
+  true fullscreen: currentContextSignals=Application,Fullscreen
+
+Detailed design:
+  docs\p8\P8B.1-FULLSCREEN-OBSERVATION-REPORT.md

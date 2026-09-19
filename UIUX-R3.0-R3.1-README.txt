@@ -1,0 +1,30 @@
+FlowIME UI/UX R3.0 + R3.1
+=========================
+
+Baseline: UIUX R2.2 / P8C.2 feature line (frozen)
+
+This package delivers the first R3 UI foundation stage:
+
+1. R3.0 Layout correctness
+   - fixes the wide-window VisualState reset bug;
+   - separates structure breakpoints from spacing breakpoints;
+   - caps content width on wide / ultrawide windows.
+
+2. R3.1 Design system foundation
+   - introduces shared command hierarchy styles;
+   - standardizes 40 epx frequent-action target height;
+   - adds shared section/status/settings styles.
+
+Recommended validation on Windows:
+
+  cd C:\FlowIME
+  dotnet test -c Debug
+  dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+
+Focus this round on:
+- Home at 760 / 1100 / ultrawide widths;
+- Rules page header/global-default/search alignment;
+- Game and Settings pages at narrow and wide widths;
+- 125% / 150% display scaling.
+
+Feature development remains frozen during the R3 UI track.

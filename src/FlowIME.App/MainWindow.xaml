@@ -1,0 +1,77 @@
+<Window
+    x:Class="FlowIME.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="FlowIME">
+
+    <Window.SystemBackdrop>
+        <MicaBackdrop Kind="Base" />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="ShellRoot" SizeChanged="ShellRoot_SizeChanged" Background="{ThemeResource FlowAppBackgroundBrush}">
+        <Grid.Resources><ResourceDictionary Source="Themes/Brand.xaml" /></Grid.Resources>
+<Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TitleBar
+            x:Name="AppTitleBar"
+            MinHeight="48"
+            Title="FlowIME"
+            Subtitle="让输入状态跟随你的使用场景">
+            <TitleBar.IconSource>
+                <ImageIconSource ImageSource="/Assets/FlowIME.Logo.png" />
+            </TitleBar.IconSource>
+        </TitleBar>
+
+        <NavigationView
+            x:Name="NavView"
+            Grid.Row="1"
+            PaneDisplayMode="Auto"
+            OpenPaneLength="224"
+            CompactPaneLength="52"
+            CompactModeThresholdWidth="760"
+            ExpandedModeThresholdWidth="1080"
+            IsBackButtonVisible="Collapsed"
+            IsSettingsVisible="True"
+            Background="Transparent"
+            DisplayModeChanged="NavView_DisplayModeChanged"
+            SelectionChanged="NavView_SelectionChanged">
+
+            <NavigationView.MenuItems>
+                <NavigationViewItem
+                    x:Name="HomeNavItem"
+                    Content="首页"
+                    Tag="home">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE80F;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="RulesNavItem" Content="规则" Tag="rules">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE8FD;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+                <NavigationViewItem x:Name="GameNavItem" Content="游戏" Tag="game">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE7FC;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.MenuItems>
+
+            <NavigationView.FooterMenuItems>
+                <NavigationViewItem Content="关于" Tag="about">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="&#xE946;" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </NavigationView.FooterMenuItems>
+
+            <Frame
+                x:Name="ContentFrame"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch" />
+        </NavigationView>
+    </Grid>
+</Window>

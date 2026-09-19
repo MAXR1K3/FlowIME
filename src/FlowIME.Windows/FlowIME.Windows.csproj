@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>FlowIME.Windows</AssemblyName>
+    <RootNamespace>FlowIME.Windows</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../FlowIME.Core/FlowIME.Core.csproj" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,41 @@
+FlowIME P8C.2 — GameTextEntry Detection + Per-Game Chat Profiles
+
+Based on: P8C.1 GameTextEntry Context Foundation.
+
+What this phase adds
+- First production GameTextEntry triggers.
+- Conservative standard text-control focus detection for explicitly configured games, latched until focus leaves.
+- Per-game chat hotkey profiles (for self-rendered game chat UIs).
+- Hotkey monitor observes configured keys but NEVER consumes them.
+- Persistent profile store: %LOCALAPPDATA%\FlowIME\game-text-entry-profiles.json
+- Settings UI for the most recently detected game.
+- Per-game text-entry target: Keep, or any registered provider Chinese/English.
+- Diagnostics for the hotkey monitor/profile persistence.
+
+Safety model
+- GameTextEntry remains valid only under a confirmed Game context.
+- Standard detector only emits on High/Certain evidence; ambiguous Document containers fail closed.
+- Accessibility probing reads role/state/class only. It never reads text, accName, accValue, URLs or clipboard data.
+- Hotkey monitor ignores injected keys and never returns a blocking hook result.
+- Default target for a new game profile is Keep.
+
+Recommended first validation
+1. dotnet test -c Debug
+2. dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+3. Enter a recognized fullscreen game; verify existing P8B behavior is unchanged (US + hotkey guard + overlay).
+4. Return to FlowIME > Settings > Game Text Input and configure the recent game.
+5. For a self-rendered chat UI, enable Hotkey Profile and enter the game's real open/close keys.
+6. Start with target Keep. In game, opening chat should enter GameTextEntry and relax the US baseline/hotkey guard; closing/submitting should return to Gameplay US.
+7. After the state transition is reliable, optionally choose a Chinese/English provider target.
+
+Typical diagnostics during active hotkey text entry
+- currentContextSignals includes Game, TextInput, GameTextEntry
+- gameTextEntryActive=True
+- gameTextEntrySource=HotkeyProfile
+- gameplayKeyboardBaselineGameTextEntry=True
+- gameplayHotkeyGuardGameTextEntry=True
+- gameTextEntryHotkeyEnterDetectedCount increases
+
+Notes
+- Different games expose chat UI differently. Standard control detection is opportunistic; the explicit hotkey profile is the reliable fallback for self-rendered UIs.
+- No OCR, game-memory access or code injection is used.

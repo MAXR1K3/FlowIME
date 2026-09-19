@@ -1,0 +1,501 @@
+<Page
+    x:Class="FlowIME.App.Views.RulesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:layout="using:FlowIME.App.Layout"
+    xmlns:viewModels="using:FlowIME.App.ViewModels"
+    Loaded="OnLoaded">
+
+    <ScrollViewer MaxWidth="{StaticResource FlowPageContentMaxWidth}" HorizontalAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalScrollBarVisibility="Auto">
+        <VisualStateManager.VisualStateGroups>
+            <VisualStateGroup x:Name="PageStructureStates">
+                <VisualState x:Name="CompactPageStructure">
+                    <VisualState.StateTriggers>
+                        <layout:ContentWidthTrigger TargetElement="{x:Bind PageRoot}" MinWidth="0" MaxWidth="620" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="AddApplicationButton.(Grid.Row)" Value="1" />
+                        <Setter Target="AddApplicationButton.(Grid.Column)" Value="0" />
+                        <Setter Target="AddApplicationButton.Margin" Value="0,12,0,0" />
+                        <Setter Target="AddApplicationButton.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="GlobalDefaultActions.(Grid.Row)" Value="1" />
+                        <Setter Target="GlobalDefaultActions.(Grid.Column)" Value="1" />
+                        <Setter Target="GlobalDefaultActions.(Grid.ColumnSpan)" Value="2" />
+                        <Setter Target="GlobalDefaultActions.Margin" Value="0,10,0,0" />
+                        <Setter Target="GlobalDefaultActions.HorizontalAlignment" Value="Left" />
+
+                        <Setter Target="RuleCountText.(Grid.Row)" Value="1" />
+                        <Setter Target="RuleCountText.(Grid.Column)" Value="0" />
+                        <Setter Target="RuleCountText.Margin" Value="0,8,0,0" />
+                        <Setter Target="RuleCountText.HorizontalAlignment" Value="Left" />
+                    </VisualState.Setters>
+                </VisualState>
+
+                <VisualState x:Name="DesktopPageStructure">
+                    <VisualState.StateTriggers>
+                        <layout:ContentWidthTrigger TargetElement="{x:Bind PageRoot}" MinWidth="620" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="AddApplicationButton.(Grid.Row)" Value="0" />
+                        <Setter Target="AddApplicationButton.(Grid.Column)" Value="1" />
+                        <Setter Target="AddApplicationButton.Margin" Value="0" />
+                        <Setter Target="AddApplicationButton.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="GlobalDefaultActions.(Grid.Row)" Value="0" />
+                        <Setter Target="GlobalDefaultActions.(Grid.Column)" Value="2" />
+                        <Setter Target="GlobalDefaultActions.(Grid.ColumnSpan)" Value="1" />
+                        <Setter Target="GlobalDefaultActions.Margin" Value="0" />
+                        <Setter Target="GlobalDefaultActions.HorizontalAlignment" Value="Right" />
+
+                        <Setter Target="RuleCountText.(Grid.Row)" Value="0" />
+                        <Setter Target="RuleCountText.(Grid.Column)" Value="1" />
+                        <Setter Target="RuleCountText.Margin" Value="0" />
+                        <Setter Target="RuleCountText.HorizontalAlignment" Value="Right" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+
+            <VisualStateGroup x:Name="PageSpacingStates">
+                <VisualState x:Name="CompactPageSpacing">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="0" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PageRoot.Padding" Value="16,20,16,28" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="ComfortablePageSpacing">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="760" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PageRoot.Padding" Value="24,24,24,32" />
+                    </VisualState.Setters>
+                </VisualState>
+                <VisualState x:Name="WidePageSpacing">
+                    <VisualState.StateTriggers>
+                        <AdaptiveTrigger MinWindowWidth="1100" />
+                    </VisualState.StateTriggers>
+                    <VisualState.Setters>
+                        <Setter Target="PageRoot.Padding" Value="32,28,32,40" />
+                    </VisualState.Setters>
+                </VisualState>
+            </VisualStateGroup>
+        </VisualStateManager.VisualStateGroups>
+    <Grid x:Name="PageRoot"  Padding="16,20,16,28" RowSpacing="0" HorizontalAlignment="Stretch">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+
+
+        <!-- Page header: only the main create action receives primary emphasis. -->
+        <Grid ColumnSpacing="16" RowSpacing="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Spacing="5">
+                <TextBlock Text="规则" Style="{StaticResource FlowPageTitleStyle}" />
+                <TextBlock
+                    Text="为常用应用设置进入时的输入状态。"
+                    Style="{StaticResource FlowPageSubtitleStyle}" />
+            </StackPanel>
+
+            <Button
+                x:Name="AddApplicationButton"
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                HorizontalAlignment="Right"
+                Style="{StaticResource FlowPrimaryButtonStyle}"
+                Click="AddApplication_Click">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon Glyph="&#xE710;" FontSize="14" />
+                    <TextBlock Text="添加应用" TextWrapping="Wrap" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Global default is one clear, whole-row configuration target. -->
+        <StackPanel Grid.Row="1" Spacing="8" Margin="0,24,0,0">
+            <TextBlock Text="全局默认场景" Style="{StaticResource FlowSectionTitleStyle}" />
+            <TextBlock
+                Text="未匹配应用规则时使用。应用规则始终拥有更高优先级。"
+                Style="{StaticResource FlowMutedTextStyle}" />
+
+            <Button
+                x:Name="GlobalDefaultButton"
+                Style="{StaticResource FlowCardButtonStyle}"
+                Click="EditGlobalDefault_Click"
+                ToolTipService.ToolTip="配置全局默认输入状态">
+                <Grid Padding="18" ColumnSpacing="16" RowSpacing="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="44" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border
+                        Width="40"
+                        Height="40"
+                        CornerRadius="9"
+                        Background="{ThemeResource FlowAccentSoftBrush}"
+                        VerticalAlignment="Center">
+                        <FontIcon
+                            Glyph="&#xE713;"
+                            FontSize="18"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                        <TextBlock
+                            Text="默认输入状态"
+                            FontSize="15"
+                            FontWeight="SemiBold"
+                            TextWrapping="Wrap" />
+                        <TextBlock
+                            Text="{Binding GlobalDefaultSummary}"
+                            Style="{StaticResource FlowMutedTextStyle}" />
+                    </StackPanel>
+
+                    <StackPanel
+                        x:Name="GlobalDefaultActions"
+                        Grid.Column="2"
+                        Orientation="Horizontal"
+                        Spacing="10"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right">
+                        <Border Style="{StaticResource FlowStatusPillStyle}">
+                            <TextBlock
+                                Text="{Binding GlobalDefaultStatusLabel}"
+                                FontSize="12"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </Border>
+                        <FontIcon
+                            Glyph="&#xE76C;"
+                            FontSize="13"
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            VerticalAlignment="Center" />
+                    </StackPanel>
+                </Grid>
+            </Button>
+        </StackPanel>
+
+        <InfoBar
+            Grid.Row="2"
+            IsOpen="{Binding HasRuleDiagnostics}"
+            IsClosable="False"
+            Severity="Warning"
+            Title="规则健康检查"
+            Message="{Binding RuleDiagnosticsSummary}" />
+
+        <InfoBar
+            x:Name="RuleFeedbackBar"
+            Grid.Row="3"
+            IsOpen="False"
+            IsClosable="True" />
+
+        <Grid Grid.Row="4" Margin="0,24,0,0" ColumnSpacing="12" RowSpacing="4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="应用规则" Style="{StaticResource FlowSectionTitleStyle}" />
+            <TextBlock
+                x:Name="RuleCountText"
+                Grid.Column="1"
+                Text="{Binding RuleCountSummary}"
+                VerticalAlignment="Center"
+                Style="{StaticResource FlowMutedTextStyle}" />
+        </Grid>
+
+        <AutoSuggestBox
+            x:Name="SearchBox"
+            AutomationProperties.Name="搜索应用规则"
+            MinHeight="40"
+            Grid.Row="5" Margin="0,12,0,0"
+            PlaceholderText="搜索应用、可执行文件或目标输入法"
+            TextChanged="SearchBox_TextChanged"
+            IsSuggestionListOpen="False" />
+
+        <TextBlock
+            Grid.Row="6" Margin="0,8,0,0"
+            Text="点击规则即可编辑；启停和更多操作位于每一行右侧。"
+            Style="{StaticResource FlowTertiaryTextStyle}" />
+
+        <Grid Grid.Row="7" Margin="0,12,0,0">
+            <Border
+                x:Name="RulesListSurface"
+                Style="{StaticResource FlowCardStyle}"
+                Padding="0"
+                Visibility="Visible">
+                <ListView
+                    x:Name="RulesList"
+                    ItemsSource="{Binding Rules}"
+                    ScrollViewer.VerticalScrollMode="Disabled"
+                    ScrollViewer.HorizontalScrollMode="Disabled"
+                    SelectionMode="None"
+                    IsItemClickEnabled="True"
+                    ItemClick="RulesList_ItemClick"
+                    ItemContainerStyle="{StaticResource FlowRuleListItemStyle}">
+                    <ListView.ItemTemplate>
+                        <DataTemplate x:DataType="viewModels:RuleListItemViewModel">
+                            <UserControl HorizontalContentAlignment="Stretch">
+                            <Border
+                                x:Name="RuleCard"
+                                Padding="16,14"
+                                BorderBrush="{ThemeResource FlowCardBorderBrush}"
+                                BorderThickness="0,0,0,1"
+                                Background="Transparent" Loaded="RuleCard_Loaded">
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="RuleCardResponsiveStates">
+                                            <VisualState x:Name="CompactRuleCard">
+                                                <VisualState.StateTriggers>
+                                                    <layout:ContentWidthTrigger TargetElement="{Binding ElementName=RuleCard}" MinWidth="0" MaxWidth="740" />
+                                                </VisualState.StateTriggers>
+                                                <VisualState.Setters>
+                                                    <Setter Target="RuleCard.Padding" Value="14" />
+                                                    <Setter Target="RuleTargetColumn.Width" Value="0" />
+                                                    <Setter Target="RuleActionColumn.Width" Value="Auto" />
+                                                    <Setter Target="RuleIdentity.(Grid.Row)" Value="0" />
+                                                    <Setter Target="RuleIdentity.(Grid.Column)" Value="1" />
+                                                    <Setter Target="RuleIdentity.(Grid.ColumnSpan)" Value="3" />
+                                                    <Setter Target="RuleTargetBadge.(Grid.Row)" Value="1" />
+                                                    <Setter Target="RuleTargetBadge.(Grid.Column)" Value="1" />
+                                                    <Setter Target="RuleTargetBadge.(Grid.ColumnSpan)" Value="3" />
+                                                    <Setter Target="RuleActionPanel.(Grid.Row)" Value="2" />
+                                                    <Setter Target="RuleActionPanel.(Grid.Column)" Value="1" />
+                                                    <Setter Target="RuleActionPanel.(Grid.ColumnSpan)" Value="3" />
+                                                    <Setter Target="RuleActionPanel.HorizontalAlignment" Value="Left" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+
+                                            <VisualState x:Name="WideRuleCard">
+                                                <VisualState.StateTriggers>
+                                                    <layout:ContentWidthTrigger TargetElement="{Binding ElementName=RuleCard}" MinWidth="740" />
+                                                </VisualState.StateTriggers>
+                                                <VisualState.Setters>
+                                                    <Setter Target="RuleCard.Padding" Value="16,14" />
+                                                    <Setter Target="RuleTargetColumn.Width" Value="260" />
+                                                    <Setter Target="RuleActionColumn.Width" Value="Auto" />
+                                                    <Setter Target="RuleIdentity.(Grid.Row)" Value="0" />
+                                                    <Setter Target="RuleIdentity.(Grid.Column)" Value="1" />
+                                                    <Setter Target="RuleIdentity.(Grid.ColumnSpan)" Value="1" />
+                                                    <Setter Target="RuleTargetBadge.(Grid.Row)" Value="0" />
+                                                    <Setter Target="RuleTargetBadge.(Grid.Column)" Value="2" />
+                                                    <Setter Target="RuleTargetBadge.(Grid.ColumnSpan)" Value="1" />
+                                                    <Setter Target="RuleActionPanel.(Grid.Row)" Value="0" />
+                                                    <Setter Target="RuleActionPanel.(Grid.Column)" Value="3" />
+                                                    <Setter Target="RuleActionPanel.(Grid.ColumnSpan)" Value="1" />
+                                                    <Setter Target="RuleActionPanel.HorizontalAlignment" Value="Right" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                <Grid RowSpacing="8" ColumnSpacing="14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="44" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition x:Name="RuleTargetColumn" Width="260" />
+                                        <ColumnDefinition x:Name="RuleActionColumn" Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+
+
+                                    <Border
+                                        Width="40"
+                                        Height="40"
+                                        CornerRadius="9"
+                                        Background="{ThemeResource ControlFillColorSecondaryBrush}"
+                                        VerticalAlignment="Center">
+                                        <Grid>
+                                            <FontIcon
+                                                Glyph="&#xE7C3;"
+                                                FontSize="16"
+                                                Visibility="{x:Bind FallbackIconVisibility, Mode=OneWay}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center" />
+                                            <Image
+                                                Source="{x:Bind Icon, Mode=OneWay}"
+                                                Visibility="{x:Bind IconVisibility, Mode=OneWay}"
+                                                Width="28"
+                                                Height="28"
+                                                Stretch="Uniform" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel x:Name="RuleIdentity" Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                                        <TextBlock
+                                            Text="{x:Bind DisplayName, Mode=OneTime}"
+                                            FontSize="16"
+                                            FontWeight="SemiBold"
+                                            TextWrapping="Wrap" />
+                                        <TextBlock
+                                            Text="{x:Bind ExecutableName, Mode=OneTime}"
+                                            FontSize="12"
+                                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                            TextWrapping="Wrap"
+                                            ToolTipService.ToolTip="{x:Bind ExecutablePath, Mode=OneTime}" />
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        x:Name="RuleTargetBadge"
+                                        Grid.Column="2"
+                                        Spacing="2"
+                                        VerticalAlignment="Center">
+                                        <TextBlock Text="进入应用时" Style="{StaticResource FlowSectionLabelStyle}" />
+                                        <TextBlock
+                                            Text="{x:Bind TargetLabel, Mode=OneTime}"
+                                            FontSize="14"
+                                            FontWeight="SemiBold"
+                                            TextWrapping="Wrap" />
+                                    </StackPanel>
+
+                                    <StackPanel
+                                        x:Name="RuleActionPanel"
+                                        Grid.Column="3"
+                                        Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Right">
+                                        <ToggleSwitch
+                                            x:Name="RuleToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="{x:Bind DisplayName, Mode=OneTime}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center"
+                                            IsOn="{x:Bind Enabled, Mode=OneTime}"
+                                            Toggled="RuleEnabled_Toggled"
+                                            ToolTipService.ToolTip="启用或停用规则" />
+
+                                        <StackPanel
+                                            x:Name="RuleActions"
+                                            Orientation="Horizontal"
+                                            Spacing="0"
+                                            HorizontalAlignment="Center">
+                                            <Button
+                                                Style="{StaticResource FlowIconButtonStyle}"
+                                                ToolTipService.ToolTip="更多操作"
+                                                AutomationProperties.Name="更多规则操作">
+                                                <FontIcon Glyph="&#xE712;" FontSize="16" />
+                                                <Button.Flyout>
+                                                    <MenuFlyout>
+                                                        <MenuFlyoutItem
+                                                            Text="编辑"
+                                                            Tag="{x:Bind Id, Mode=OneTime}"
+                                                            Click="EditRule_Click">
+                                                            <MenuFlyoutItem.Icon>
+                                                                <FontIcon Glyph="&#xE70F;" />
+                                                            </MenuFlyoutItem.Icon>
+                                                        </MenuFlyoutItem>
+                                                        <MenuFlyoutSeparator />
+                                                        <MenuFlyoutItem
+                                                            Text="删除"
+                                                            Tag="{x:Bind Id, Mode=OneTime}"
+                                                            Click="DeleteRule_Click">
+                                                            <MenuFlyoutItem.Icon>
+                                                                <FontIcon Glyph="&#xE74D;" />
+                                                            </MenuFlyoutItem.Icon>
+                                                        </MenuFlyoutItem>
+                                                    </MenuFlyout>
+                                                </Button.Flyout>
+                                            </Button>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                            </UserControl>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Border>
+
+            <Border
+                x:Name="EmptyState"
+                Padding="28"
+                Style="{StaticResource FlowCardStyle}">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="10">
+                    <FontIcon
+                        Glyph="&#xE8FD;"
+                        FontSize="32"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock
+                        Text="还没有应用专属规则"
+                        FontSize="20"
+                        FontWeight="SemiBold"
+                        HorizontalAlignment="Center"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Text="添加应用后，它会覆盖上方的全局默认场景。"
+                        Style="{StaticResource FlowMutedTextStyle}"
+                        TextAlignment="Center"
+                        MaxWidth="420" />
+                    <Button
+                        Margin="0,6,0,0"
+                        Style="{StaticResource FlowPrimaryButtonStyle}"
+                        Content="添加第一个应用"
+                        Click="AddApplication_Click" />
+                </StackPanel>
+            </Border>
+
+            <Border
+                x:Name="NoSearchResultsState"
+                Padding="28"
+                Style="{StaticResource FlowCardStyle}"
+                Visibility="Collapsed">
+                <StackPanel
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="10">
+                    <FontIcon
+                        Glyph="&#xE721;"
+                        FontSize="30"
+                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    <TextBlock
+                        Text="没有匹配的规则"
+                        FontSize="19"
+                        FontWeight="SemiBold"
+                        TextAlignment="Center"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        Text="换一个应用名、文件名或输入法名称试试。"
+                        Style="{StaticResource FlowMutedTextStyle}"
+                        TextAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+    </ScrollViewer>
+</Page>

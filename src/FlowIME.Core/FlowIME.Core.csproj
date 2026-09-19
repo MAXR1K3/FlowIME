@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>FlowIME.Core</AssemblyName>
+    <RootNamespace>FlowIME.Core</RootNamespace>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,24 @@
+FlowIME P8B.3 — Gameplay Hotkey Guard
+
+Baseline: P8B.2.1
+
+What changed:
+- Added context-gated WH_KEYBOARD_LL gameplay shortcut protection.
+- Default blocking: Win+Space and Ctrl+Space.
+- Optional legacy blocking: Alt+Shift and Ctrl+Shift (default off).
+- Guard arms only for Game context + automation enabled, and is pre-wired to disarm for future GameTextEntry context.
+- Added persistent settings.json independent from rules.json.
+- Added Settings > 游戏保护 controls.
+- Added hotkey-guard diagnostics and unit/contract tests.
+- No Gameplay input policy / forced-English behavior was added.
+
+Recommended validation:
+1. dotnet test -c Debug
+2. dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+3. Outside a game, Win+Space and Ctrl+Space should behave exactly as Windows/IME normally do.
+4. Enter a game that diagnostics classify as Application,Fullscreen,Game.
+5. With 游戏内阻止输入法快捷键 enabled, Win+Space and Ctrl+Space should no longer switch language/IME.
+6. Exit/Alt+Tab away from the game; shortcuts must immediately work again.
+7. Copy diagnostics and inspect gameplayHotkeySuppressedCount / gameplayHotkeyLastSuppressed.
+
+Note: legacy Alt+Shift / Ctrl+Shift blocking is off by default because those chords can be real game binds.

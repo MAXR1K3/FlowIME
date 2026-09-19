@@ -1,0 +1,16 @@
+FlowIME UI/UX R3.2.1 Home Polish
+
+1. Overlay this package on UIUX R3.2 / your current FlowIME tree.
+2. Run:
+   dotnet test -c Debug
+   dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+
+Focus validation on:
+- title bar logo
+- Home automation header control
+- actual foreground app icon/fallback
+- current-input readability when mode is unknown
+- compact vs desktop Hero layout
+- decision explanation disclosure
+
+Feature line remains frozen at P8C.2.

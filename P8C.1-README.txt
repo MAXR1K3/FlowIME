@@ -1,0 +1,32 @@
+FlowIME P8C.1 — GameTextEntry Context Foundation
+
+Based on: P8B.4.3 Gameplay Exit Restore + Input Status Overlay.
+
+This phase adds the architecture for in-game text-entry context but intentionally does
+NOT auto-detect chat boxes yet and does NOT change validated Gameplay behavior.
+
+New foundation
+- GameTextEntryRuntimeState: thread-safe active/inactive session latch.
+- GameTextEntryRuntimeDetector: passive context projection.
+- InputContextEngine invariant: GameTextEntry is removed unless Game is also active.
+- GameTextEntry implies generic TextInput.
+- GameTextEntryProfile + in-memory profile registry.
+- GameTextEntryPolicy priority above Gameplay US baseline.
+- Unconfigured GameTextEntry resolves to Keep (fail closed).
+- InputContextTrigger.GameTextEntryChanged.
+- Adapter-facing AppServices enter/exit/profile seams.
+- Diagnostics for runtime state; no typed text is logged.
+
+Zero-regression contract
+- P8C.1 registers no automatic GameTextEntry activation source.
+- Empty profile registry by default.
+- No settings/rules schema change.
+- Existing Gameplay US baseline, hotkey guard, overlay and exit restore remain active.
+
+Validation
+1. dotnet test -c Debug
+2. dotnet run --project .\src\FlowIME.App\FlowIME.App.csproj -c Debug
+3. Re-run P8B regression: enter game -> US, hotkeys blocked, Alt+Tab -> desktop rule restored.
+4. Diagnostics should show gameTextEntryActive=False during ordinary Gameplay.
+
+Next: P8C.2 standard text-control focus adapter + explicit per-game chat-key profiles.
