@@ -1,8 +1,0 @@
-FlowIME P7.2.2 — Rules alignment polish
-
-基于 P7.2.1 响应式修复继续调整规则页：
-- 全局默认场景右侧“状态 + 配置”合并为同一操作组，共享垂直中心线。
-- 应用规则右侧“启用开关 + 编辑/删除”合并为统一操作组，开关相对按钮组居中。
-- 规则目标标签内的图标与文字改为垂直居中。
-- Compact 布局仍保持响应式：右侧操作组会整体下沉，而不是挤压内容。
-- 不修改 Core / Windows / Infrastructure / Probe / App Services。

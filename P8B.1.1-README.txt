@@ -1,9 +1,0 @@
-FlowIME P8B.1.1 - diagnostic history fix
-
-Purpose: make fullscreen verification reliable even when opening FlowIME diagnostics changes foreground focus.
-
-New diagnostic fields:
-  recentDecisionCount=N
-  recentDecision[i]=timestamp|process|signals|trigger|source|reasonCode|outcome
-
-No switching behavior changed.

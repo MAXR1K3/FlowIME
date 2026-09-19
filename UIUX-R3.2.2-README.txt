@@ -1,5 +1,0 @@
-FlowIME UI/UX R3.2.2
-
-Small design-system contract fix on top of R3.2.1.
-HomePage now consumes the shared FlowPageContentMaxWidth resource instead of hard-coding 1120.
-No runtime or feature behavior changes.
