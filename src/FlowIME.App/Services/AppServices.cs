@@ -40,6 +40,7 @@ public sealed class AppServices : IAsyncDisposable
     private readonly GameTextEntryHotkeyMonitor _gameTextEntryHotkeyMonitor;
     private readonly InputStatusOverlay _inputStatusOverlay;
     private readonly KeyboardLayoutInspector _keyboardLayoutInspector = new();
+    private readonly IInputProfileInspector _inputProfileInspector = new TsfInputProfileInspector();
     private readonly GameplayExitTransitionTracker _gameplayTransitionTracker = new();
     private readonly AppPaths _paths;
     private readonly RollingFileTraceListener? _automationTraceListener;
@@ -1424,11 +1425,28 @@ public sealed class AppServices : IAsyncDisposable
             return;
         }
 
+        TsfProfileSnapshot? inputProfile = null;
+        try
+        {
+            var detectedProfile = _inputProfileInspector.GetActiveKeyboardProfile();
+            if (detectedProfile.Success)
+            {
+                inputProfile = detectedProfile;
+            }
+        }
+        catch
+        {
+            // The overlay remains usable without an icon when TSF profile inspection fails.
+        }
+
         _inputStatusOverlay.Show(
             label,
             snapshot.Window.Hwnd,
-            persistent: isGameplay && !isGameTextEntry && label == "US",
-            focusHwnd: snapshot.Context?.FocusHwnd ?? 0);
+            // A permanent topmost indicator is disruptive in games and can outlive
+            // stale gameplay/caret evidence. Every overlay presentation is bounded.
+            persistent: false,
+            focusHwnd: snapshot.Context?.FocusHwnd ?? 0,
+            inputProfile: inputProfile);
     }
 
     private void ScheduleGameplayExitRestore(string? targetProcessName)

@@ -36,8 +36,9 @@ public sealed class InputStatusOverlayPlacementTests
             caretBounds: null,
             caretGap: 10);
 
-        Assert.Equal(expectedX, point.X);
-        Assert.Equal(expectedY, point.Y);
+        Assert.NotNull(point);
+        Assert.Equal(expectedX, point.Value.X);
+        Assert.Equal(expectedY, point.Value.Y);
     }
 
     [Fact]
@@ -60,8 +61,9 @@ public sealed class InputStatusOverlayPlacementTests
             caretBounds: caret,
             caretGap: 10);
 
-        Assert.Equal(512, point.X);
-        Assert.Equal(334, point.Y);
+        Assert.NotNull(point);
+        Assert.Equal(512, point.Value.X);
+        Assert.Equal(334, point.Value.Y);
     }
 
     [Fact]
@@ -84,14 +86,15 @@ public sealed class InputStatusOverlayPlacementTests
             caretBounds: caret,
             caretGap: 10);
 
-        Assert.Equal(996, point.X);
-        Assert.Equal(754, point.Y);
+        Assert.NotNull(point);
+        Assert.Equal(996, point.Value.X);
+        Assert.Equal(754, point.Value.Y);
     }
 
     [Fact]
-    public void Missing_caret_falls_back_to_bottom_center()
+    public void Missing_caret_suppresses_the_overlay_instead_of_using_a_wrong_screen_position()
     {
-        var point = InputStatusOverlayPlacement.Resolve(
+        InputStatusOverlayPoint? point = InputStatusOverlayPlacement.Resolve(
             InputStatusOverlayPosition.Caret,
             WorkArea,
             width: 80,
@@ -100,8 +103,7 @@ public sealed class InputStatusOverlayPlacementTests
             caretBounds: null,
             caretGap: 10);
 
-        Assert.Equal(560, point.X);
-        Assert.Equal(770, point.Y);
+        Assert.Null(point);
     }
 
     [Theory]
@@ -179,4 +181,5 @@ public sealed class InputStatusOverlayPlacementTests
         Assert.Equal(180, bounds.Top);
         Assert.Equal(204, bounds.Bottom);
     }
+
 }

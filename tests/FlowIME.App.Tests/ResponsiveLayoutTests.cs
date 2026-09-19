@@ -44,7 +44,8 @@ public sealed class ResponsiveLayoutTests
         Assert.Equal("Polite", (string?)Named(doc, "SettingsFeedbackBar").Attribute("AutomationProperties.LiveSetting"));
         var source = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "Views", "SettingsPage.xaml.cs"));
         Assert.Contains("ShowSettingsFeedback", source);
-        Assert.Contains("InputStatusOverlayToggle.IsEnabled = false", source);
+        Assert.Contains("_pendingInputStatusOverlaySettings", source);
+        Assert.DoesNotContain("InputStatusOverlayToggle.IsEnabled = false", source);
         Assert.Contains("finally", source);
     }
 

@@ -81,8 +81,15 @@ public sealed class UiShellContractTests
         Assert.Contains("x:Name=\"InputStatusOverlayOpacityText\" Text=\"100%\"", xaml, StringComparison.Ordinal);
         Assert.Contains("InputStatusOverlayAnimationsToggle", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("输入状态提示", xaml, StringComparison.Ordinal);
+        Assert.Contains("private bool _synchronizingStartupToggle = true;", source, StringComparison.Ordinal);
         Assert.Contains("private bool _synchronizingInputStatusOverlayToggle = true;", source, StringComparison.Ordinal);
+        Assert.Contains("private bool _synchronizingGameplayKeyboardBaselineToggle = true;", source, StringComparison.Ordinal);
+        Assert.Contains("private bool _synchronizingGameplayHotkeyToggles = true;", source, StringComparison.Ordinal);
+        Assert.Contains("_pendingInputStatusOverlaySettings", source, StringComparison.Ordinal);
         Assert.Contains("SetInputStatusOverlaySettingsAsync", source, StringComparison.Ordinal);
+
+        var services = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "AppServices.cs"));
+        Assert.Contains("persistent: false", services, StringComparison.Ordinal);
     }
 
     [Fact]

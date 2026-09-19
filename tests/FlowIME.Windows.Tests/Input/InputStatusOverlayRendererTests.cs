@@ -1,5 +1,6 @@
 using FlowIME.Core.Settings;
 using FlowIME.Windows.Input;
+using SkiaSharp;
 
 namespace FlowIME.Windows.Tests.Input;
 
@@ -62,5 +63,107 @@ public sealed class InputStatusOverlayRendererTests
             opacityPercent: 92);
 
         Assert.Equal(expectedFamily, frame.TypefaceFamily);
+    }
+
+    [Fact]
+    public void Render_draws_the_supplied_input_method_brand_icon_before_the_language_label()
+    {
+        using var icon = new SKBitmap(16, 16);
+        icon.Erase(new SKColor(220, 40, 20));
+        using var frame = InputStatusOverlayRenderer.Render(
+            "EN",
+            InputStatusOverlaySize.Medium,
+            dpi: 96,
+            opacityPercent: 100,
+            brandIcon: icon);
+
+        var iconPixel = frame.GetPixel(frame.SurfaceLeft + 11, frame.Height / 2);
+        Assert.True(iconPixel.Red < 80);
+        Assert.True(iconPixel.Green < 80);
+        Assert.True(iconPixel.Blue < 80);
+    }
+
+    [Fact]
+    public void Render_tints_the_registered_brand_shape_for_dark_theme_contrast()
+    {
+        using var icon = new SKBitmap(16, 16);
+        icon.Erase(new SKColor(20, 20, 20));
+        using var frame = InputStatusOverlayRenderer.Render(
+            "中",
+            InputStatusOverlaySize.Medium,
+            dpi: 96,
+            opacityPercent: 100,
+            colorScheme: OverlayColorScheme.Dark,
+            brandIcon: icon);
+
+        var iconPixel = frame.GetPixel(frame.SurfaceLeft + 11, frame.Height / 2);
+        Assert.True(iconPixel.Red > 220);
+        Assert.True(iconPixel.Green > 220);
+        Assert.True(iconPixel.Blue > 220);
+    }
+
+    [Fact]
+    public void Renderer_supports_system_light_and_dark_palettes()
+    {
+        var root = FindRepositoryRoot();
+        var renderer = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "FlowIME.Windows",
+            "Input",
+            "InputStatusOverlayRenderer.cs"));
+        var overlay = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "FlowIME.Windows",
+            "Input",
+            "InputStatusOverlay.cs"));
+
+        Assert.Contains("OverlayColorScheme.Dark", renderer, StringComparison.Ordinal);
+        Assert.Contains("OverlayColorScheme.Light", renderer, StringComparison.Ordinal);
+        Assert.Contains("InputStatusOverlayThemeResolver.Resolve", overlay, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Dark_palette_uses_a_dark_surface_with_high_contrast_content()
+    {
+        using var frame = InputStatusOverlayRenderer.Render(
+            "中",
+            InputStatusOverlaySize.Medium,
+            dpi: 96,
+            opacityPercent: 100,
+            colorScheme: OverlayColorScheme.Dark);
+
+        var surface = frame.GetPixel(frame.Width / 2, frame.SurfaceTop + 4);
+        Assert.True(surface.Red < 70, $"Unexpected dark surface red channel: {surface.Red}");
+        Assert.True(surface.Green < 70, $"Unexpected dark surface green channel: {surface.Green}");
+        Assert.True(surface.Blue < 70, $"Unexpected dark surface blue channel: {surface.Blue}");
+    }
+
+    [Theory]
+    [InlineData(0, "Dark")]
+    [InlineData(1, "Light")]
+    [InlineData(null, "Light")]
+    public void Theme_resolver_maps_the_windows_apps_theme_setting(
+        int? appsUseLightTheme,
+        string expected)
+    {
+        Assert.Equal(expected, InputStatusOverlayThemeResolver.Resolve(appsUseLightTheme).ToString());
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var current = new DirectoryInfo(AppContext.BaseDirectory);
+        while (current is not null)
+        {
+            if (File.Exists(Path.Combine(current.FullName, "FlowIME.sln")))
+            {
+                return current.FullName;
+            }
+
+            current = current.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Could not locate repository root.");
     }
 }

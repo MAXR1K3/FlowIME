@@ -47,15 +47,18 @@ internal static class InputStatusOverlayRenderer
         string label,
         InputStatusOverlaySize size,
         uint dpi,
-        int opacityPercent)
+        int opacityPercent,
+        OverlayColorScheme colorScheme = OverlayColorScheme.Light,
+        SKBitmap? brandIcon = null)
     {
         var scale = Math.Max(1d, dpi / 96d);
         var logical = size switch
         {
-            InputStatusOverlaySize.Small => new OverlayVisualMetrics(58, 34, 10, 14),
-            InputStatusOverlaySize.Large => new OverlayVisualMetrics(88, 48, 14, 19),
-            _ => new OverlayVisualMetrics(72, 40, 12, 16)
+            InputStatusOverlaySize.Small => new OverlayVisualMetrics(68, 34, 10, 14, 16),
+            InputStatusOverlaySize.Large => new OverlayVisualMetrics(104, 48, 14, 19, 22),
+            _ => new OverlayVisualMetrics(84, 40, 12, 16, 18)
         };
+        var palette = OverlayPalette.For(colorScheme);
         var shadowPadding = Math.Max(6, (int)Math.Ceiling(8 * scale));
         var surfaceWidth = Math.Max(1, (int)Math.Round(logical.Width * scale));
         var surfaceHeight = Math.Max(1, (int)Math.Round(logical.Height * scale));
@@ -79,13 +82,13 @@ internal static class InputStatusOverlayRenderer
         using (var shadowPaint = new SKPaint
         {
             IsAntialias = true,
-            Color = new SKColor(15, 23, 42, 44),
+            Color = palette.Shadow,
             ImageFilter = SKImageFilter.CreateDropShadowOnly(
                 0,
                 (float)(2 * scale),
                 (float)(5 * scale),
                 (float)(5 * scale),
-                new SKColor(15, 23, 42, 56))
+                palette.Shadow)
         })
         {
             canvas.DrawRoundRect(surfaceRect, radius, radius, shadowPaint);
@@ -95,7 +98,7 @@ internal static class InputStatusOverlayRenderer
         using (var surfaceShader = SKShader.CreateLinearGradient(
             new SKPoint(surfaceRect.Left, surfaceRect.Top),
             new SKPoint(surfaceRect.Left, surfaceRect.Bottom),
-            [new SKColor(253, 253, 254), new SKColor(244, 246, 249)],
+            [palette.SurfaceTop, palette.SurfaceBottom],
             null,
             SKShaderTileMode.Clamp))
         {
@@ -110,7 +113,7 @@ internal static class InputStatusOverlayRenderer
             IsAntialias = true,
             Style = SKPaintStyle.Stroke,
             StrokeWidth = Math.Max(1f, (float)scale),
-            Color = new SKColor(207, 213, 223, 210)
+            Color = palette.Border
         })
         {
             var inset = borderPaint.StrokeWidth / 2f;
@@ -125,20 +128,27 @@ internal static class InputStatusOverlayRenderer
                 borderPaint);
         }
 
-        var accentWidth = Math.Max(3f, (float)(3 * scale));
-        var accentHeight = Math.Max(12f, (float)(14 * scale));
-        var accentRect = new SKRect(
+        var iconSize = (float)(logical.IconSize * scale);
+        var iconRect = new SKRect(
             surfaceRect.Left + (float)(9 * scale),
-            surfaceRect.MidY - (accentHeight / 2f),
-            surfaceRect.Left + (float)(9 * scale) + accentWidth,
-            surfaceRect.MidY + (accentHeight / 2f));
-        using (var accentPaint = new SKPaint
+            surfaceRect.MidY - (iconSize / 2f),
+            surfaceRect.Left + (float)(9 * scale) + iconSize,
+            surfaceRect.MidY + (iconSize / 2f));
+        if (brandIcon is not null)
         {
-            IsAntialias = true,
-            Color = new SKColor(59, 130, 246)
-        })
-        {
-            canvas.DrawRoundRect(accentRect, accentWidth / 2f, accentWidth / 2f, accentPaint);
+            // Use the provider's registered silhouette, but tint it with the same
+            // foreground role as the label so monochrome vendor icons remain
+            // legible when Windows switches between light and dark app themes.
+            using var iconPaint = new SKPaint
+            {
+                IsAntialias = true,
+                ColorFilter = SKColorFilter.CreateBlendMode(palette.Text, SKBlendMode.SrcIn)
+            };
+            canvas.DrawBitmap(
+                brandIcon,
+                iconRect,
+                new SKSamplingOptions(SKFilterMode.Linear, SKMipmapMode.None),
+                iconPaint);
         }
 
         var typefaceFamily = ContainsCjk(label) ? CjkTypefaceFamily : LatinTypefaceFamily;
@@ -155,14 +165,17 @@ internal static class InputStatusOverlayRenderer
         using var textPaint = new SKPaint
         {
             IsAntialias = true,
-            Color = new SKColor(28, 32, 39)
+            Color = palette.Text
         };
         var metrics = font.Metrics;
         var baseline = surfaceRect.MidY - ((metrics.Ascent + metrics.Descent) / 2f);
-        var opticalOffset = (float)(3 * scale);
+        var textLeft = brandIcon is null
+            ? surfaceRect.Left + (float)(8 * scale)
+            : iconRect.Right + (float)(6 * scale);
+        var textRight = surfaceRect.Right - (float)(8 * scale);
         canvas.DrawText(
             label,
-            surfaceRect.MidX + opticalOffset,
+            textLeft + ((textRight - textLeft) / 2f),
             baseline,
             SKTextAlign.Center,
             font,
@@ -183,5 +196,38 @@ internal static class InputStatusOverlayRenderer
         int Width,
         int Height,
         int CornerRadius,
-        int FontSize);
+        int FontSize,
+        int IconSize);
+
+    private readonly record struct OverlayPalette(
+        SKColor SurfaceTop,
+        SKColor SurfaceBottom,
+        SKColor Border,
+        SKColor Text,
+        SKColor IconBackground,
+        SKColor IconForeground,
+        SKColor Shadow)
+    {
+        internal static OverlayPalette For(OverlayColorScheme colorScheme) =>
+            colorScheme switch
+            {
+                OverlayColorScheme.Dark => new OverlayPalette(
+                    new SKColor(38, 42, 49),
+                    new SKColor(27, 30, 36),
+                    new SKColor(82, 90, 103, 220),
+                    new SKColor(246, 247, 249),
+                    new SKColor(196, 111, 79),
+                    new SKColor(255, 250, 247),
+                    new SKColor(0, 0, 0, 108)),
+                OverlayColorScheme.Light => new OverlayPalette(
+                    new SKColor(253, 253, 254),
+                    new SKColor(244, 246, 249),
+                    new SKColor(207, 213, 223, 210),
+                    new SKColor(28, 32, 39),
+                    new SKColor(164, 91, 65),
+                    new SKColor(255, 250, 247),
+                    new SKColor(15, 23, 42, 56)),
+                _ => throw new ArgumentOutOfRangeException(nameof(colorScheme))
+            };
+    }
 }

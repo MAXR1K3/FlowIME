@@ -41,6 +41,11 @@ internal static class UiAutomationCaretBoundsProvider
                 return null;
             }
 
+            if (!BelongsToAnchorWindow(focusedElement, anchor))
+            {
+                return null;
+            }
+
             if (!focusedElement.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) ||
                 pattern is not TextPattern textPattern)
             {
@@ -133,4 +138,30 @@ internal static class UiAutomationCaretBoundsProvider
             Bottom = checked(top + height)
         };
     }
+
+    private static bool BelongsToAnchorWindow(AutomationElement focusedElement, nint anchor)
+    {
+        var anchorRoot = GetAncestor(anchor, 2); // GA_ROOT
+        if (anchorRoot == 0)
+        {
+            return false;
+        }
+
+        AutomationElement? element = focusedElement;
+        for (var depth = 0; depth < 32 && element is not null; depth++)
+        {
+            var elementWindow = new nint(element.Current.NativeWindowHandle);
+            if (elementWindow != 0 && GetAncestor(elementWindow, 2) == anchorRoot)
+            {
+                return true;
+            }
+
+            element = TreeWalker.ControlViewWalker.GetParent(element);
+        }
+
+        return false;
+    }
+
+    [DllImport("user32.dll")]
+    private static extern nint GetAncestor(nint window, uint flags);
 }

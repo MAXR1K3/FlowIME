@@ -10,7 +10,7 @@ internal static class InputStatusOverlayPlacement
     internal static nint ResolveAnchor(nint foregroundHwnd, nint focusHwnd) =>
         focusHwnd != 0 ? focusHwnd : foregroundHwnd;
 
-    internal static InputStatusOverlayPoint Resolve(
+    internal static InputStatusOverlayPoint? Resolve(
         InputStatusOverlayPosition position,
         User32Native.Rect workArea,
         int width,
@@ -35,7 +35,7 @@ internal static class InputStatusOverlayPlacement
 
         if (position == InputStatusOverlayPosition.Caret)
         {
-            position = InputStatusOverlayPosition.BottomCenter;
+            return null;
         }
 
         var left = workArea.Left + margin;

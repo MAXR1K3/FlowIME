@@ -13,15 +13,19 @@ namespace FlowIME.App.Views;
 public sealed partial class SettingsPage : Page
 {
     private readonly DiagnosticsClipboardWriter _diagnosticsClipboard = new();
-    private bool _synchronizingStartupToggle;
+    // XAML raises control change events during InitializeComponent. Every guard
+    // must start active, including controls hidden by the current page mode, or
+    // their XAML defaults can overwrite persisted preferences before Loaded.
+    private bool _synchronizingStartupToggle = true;
     // XAML raises control change events during InitializeComponent. Keep the guard
     // active until persisted overlay preferences have been loaded, otherwise the
     // default control values overwrite the user's saved settings on first visit.
     private bool _synchronizingInputStatusOverlayToggle = true;
-    private bool _synchronizingGameplayKeyboardBaselineToggle;
-    private bool _synchronizingGameplayHotkeyToggles;
+    private bool _synchronizingGameplayKeyboardBaselineToggle = true;
+    private bool _synchronizingGameplayHotkeyToggles = true;
     private bool _savingHotkeys;
     private bool _savingInputStatusOverlay;
+    private InputStatusOverlaySettings? _pendingInputStatusOverlaySettings;
     private CancellationTokenSource? _overlayPreferenceSaveCancellation;
     private string _viewMode = "settings";
 
@@ -102,7 +106,7 @@ public sealed partial class SettingsPage : Page
 
     private async void InputStatusOverlayToggle_Toggled(object sender, RoutedEventArgs e)
     {
-        if (_synchronizingInputStatusOverlayToggle || _savingInputStatusOverlay)
+        if (_synchronizingInputStatusOverlayToggle)
         {
             return;
         }
@@ -114,7 +118,7 @@ public sealed partial class SettingsPage : Page
 
     private async void InputStatusOverlayPreference_Changed(object sender, RoutedEventArgs e)
     {
-        if (_synchronizingInputStatusOverlayToggle || _savingInputStatusOverlay)
+        if (_synchronizingInputStatusOverlayToggle)
         {
             return;
         }
@@ -132,7 +136,7 @@ public sealed partial class SettingsPage : Page
             InputStatusOverlayOpacityText.Text = $"{Math.Round(e.NewValue):0}%";
         }
 
-        if (_synchronizingInputStatusOverlayToggle || _savingInputStatusOverlay)
+        if (_synchronizingInputStatusOverlayToggle)
         {
             return;
         }
@@ -152,25 +156,44 @@ public sealed partial class SettingsPage : Page
 
     private async Task SaveInputStatusOverlaySettingsAsync()
     {
-        var settings = ReadInputStatusOverlaySettingsFromControls();
+        // Never discard a control event just because an earlier disk write is still
+        // running. Keep replacing the pending snapshot and drain it after the active
+        // write; the final persisted value is therefore always the latest UI state.
+        _pendingInputStatusOverlaySettings = ReadInputStatusOverlaySettingsFromControls();
+        if (_savingInputStatusOverlay)
+        {
+            return;
+        }
+
         _savingInputStatusOverlay = true;
-        InputStatusOverlayToggle.IsEnabled = false;
-        SetInputStatusOverlayPersonalizationControlsEnabled(false);
         ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             var services = ((App)Application.Current).Services;
-            await services.SetInputStatusOverlaySettingsAsync(settings);
+            InputStatusOverlaySettings? savedSettings = null;
+            while (_pendingInputStatusOverlaySettings is { } settings)
+            {
+                _pendingInputStatusOverlaySettings = null;
+                await services.SetInputStatusOverlaySettingsAsync(settings);
+                savedSettings = settings;
+            }
+
+            if (savedSettings is null)
+            {
+                return;
+            }
+
             var snapshot = services.GetInputStatusOverlaySnapshot();
-            InputStatusOverlayStatusText.Text = !settings.Enabled
+            InputStatusOverlayStatusText.Text = !savedSettings.Enabled
                 ? "已关闭：不显示输入状态浮层。"
                 : snapshot.Started
-                    ? $"已启用：{DescribeOverlayPosition(settings.Position)}显示中 / EN / US。"
+                    ? $"已启用：{DescribeOverlayPosition(savedSettings.Position)}显示中 / EN / US。"
                     : "设置已启用，但状态浮层暂不可用。请重启 FlowIME 后重试。";
             ShowSettingsFeedback("浮层设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
+            _pendingInputStatusOverlaySettings = null;
             Trace.WriteLine(
                 $"[FlowIME.Overlay] stage=settings-save result=failed " +
                 $"error={ex.GetType().Name}:{ex.Message}");
@@ -181,7 +204,6 @@ public sealed partial class SettingsPage : Page
         finally
         {
             _savingInputStatusOverlay = false;
-            InputStatusOverlayToggle.IsEnabled = true;
             UpdateInputStatusOverlayPersonalizationState();
         }
     }
@@ -398,7 +420,7 @@ public sealed partial class SettingsPage : Page
             return;
         }
 
-        var enabled = InputStatusOverlayToggle.IsOn && !_savingInputStatusOverlay;
+        var enabled = InputStatusOverlayToggle.IsOn;
         SetInputStatusOverlayPersonalizationControlsEnabled(enabled);
         InputStatusOverlayPersonalizationPanel.Opacity = enabled ? 1d : 0.55d;
     }

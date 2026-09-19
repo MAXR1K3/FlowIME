@@ -140,7 +140,7 @@ public sealed class InputStatusOverlay : IDisposable
         {
             Hide();
         }
-        else if (_visible)
+        else if (Volatile.Read(ref _visible))
         {
             var window = Interlocked.CompareExchange(ref _window, IntPtr.Zero, IntPtr.Zero);
             if (window != 0)
@@ -155,7 +155,8 @@ public sealed class InputStatusOverlay : IDisposable
         nint anchorHwnd,
         bool persistent,
         TimeSpan? duration = null,
-        nint focusHwnd = 0)
+        nint focusHwnd = 0,
+        TsfProfileSnapshot? inputProfile = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         var settings = Volatile.Read(ref _settings);
@@ -180,7 +181,7 @@ public sealed class InputStatusOverlay : IDisposable
 
         Volatile.Write(
             ref _pendingPresentation,
-            new Presentation(normalized, resolvedAnchor, persistent, milliseconds));
+            new Presentation(normalized, resolvedAnchor, persistent, milliseconds, inputProfile));
 
         var window = Interlocked.CompareExchange(ref _window, IntPtr.Zero, IntPtr.Zero);
         if (window != 0)
@@ -393,11 +394,19 @@ public sealed class InputStatusOverlay : IDisposable
         }
 
         var scale = dpi / 96d;
+        var colorScheme = InputStatusOverlayThemeResolver.Resolve();
+        using var brandIcon = presentation.InputProfile is null
+            ? null
+            : InputMethodBrandIconResolver.TryLoad(
+                presentation.InputProfile,
+                checked((int)Math.Round(32 * scale)));
         using var frame = InputStatusOverlayRenderer.Render(
             presentation.Label,
             settings.Size,
             dpi,
-            opacityPercent: 100);
+            opacityPercent: 100,
+            colorScheme: colorScheme,
+            brandIcon: brandIcon);
         var nextSurface = LayeredWindowSurface.Create(frame);
         var width = frame.Width;
         var height = frame.Height;
@@ -410,6 +419,7 @@ public sealed class InputStatusOverlay : IDisposable
         var monitorInfo = User32Native.MonitorInfo.Create();
         if (monitor == 0 || !User32Native.GetMonitorInfoW(monitor, ref monitorInfo))
         {
+            nextSurface.Dispose();
             lock (_diagnosticSync)
             {
                 _lastError = "monitor-resolution-failed";
@@ -431,12 +441,24 @@ public sealed class InputStatusOverlay : IDisposable
             margin,
             caretBounds,
             caretGap);
+        if (point is null)
+        {
+            // Do not replace an unavailable caret with an unrelated screen
+            // position. Hiding also clears a previously persistent/stale frame.
+            nextSurface.Dispose();
+            HideWindow(hwnd);
+            lock (_diagnosticSync)
+            {
+                _lastError = "caret-position-unavailable";
+            }
+            return;
+        }
 
         _ = NativeMethods.KillTimer(hwnd, (nuint)HideTimerId);
         _ = NativeMethods.KillTimer(hwnd, (nuint)AnimationTimerId);
         var wasVisible = _visible;
-        _restingX = point.X;
-        _restingY = point.Y;
+        _restingX = point.Value.X;
+        _restingY = point.Value.Y;
         _animationTravel = Math.Max(3, (int)Math.Round(AnimationTravelLogicalPixels * scale));
         _targetAlpha = checked((byte)Math.Round(255 * settings.OpacityPercent / 100d));
         var initialY = settings.AnimationsEnabled && !wasVisible
@@ -469,7 +491,7 @@ public sealed class InputStatusOverlay : IDisposable
 
         lock (_diagnosticSync)
         {
-            _visible = true;
+            Volatile.Write(ref _visible, true);
             _persistent = presentation.Persistent;
             _label = presentation.Label;
             _lastShownAt = DateTimeOffset.UtcNow;
@@ -509,7 +531,9 @@ public sealed class InputStatusOverlay : IDisposable
     {
         _ = NativeMethods.KillTimer(hwnd, (nuint)HideTimerId);
         var settings = Volatile.Read(ref _settings);
-        if (_visible && settings.AnimationsEnabled && _animationState != OverlayAnimationState.Exiting)
+        if (Volatile.Read(ref _visible) &&
+            settings.AnimationsEnabled &&
+            _animationState != OverlayAnimationState.Exiting)
         {
             _animationState = OverlayAnimationState.Exiting;
             _animationStartedTimestamp = Stopwatch.GetTimestamp();
@@ -531,7 +555,7 @@ public sealed class InputStatusOverlay : IDisposable
         _animationState = OverlayAnimationState.Hidden;
         lock (_diagnosticSync)
         {
-            _visible = false;
+            Volatile.Write(ref _visible, false);
             _persistent = false;
         }
     }
@@ -715,16 +739,20 @@ public sealed class InputStatusOverlay : IDisposable
                 throw new Win32Exception(Marshal.GetLastPInvokeError());
             }
 
+            nint memoryDc = 0;
+            nint bitmap = 0;
+            nint previousBitmap = 0;
+            var ownershipTransferred = false;
             try
             {
-                var memoryDc = NativeMethods.CreateCompatibleDC(screenDc);
+                memoryDc = NativeMethods.CreateCompatibleDC(screenDc);
                 if (memoryDc == 0)
                 {
                     throw new Win32Exception(Marshal.GetLastPInvokeError());
                 }
 
                 var bitmapInfo = NativeMethods.BitmapInfo.Create(frame.Width, frame.Height);
-                var bitmap = NativeMethods.CreateDIBSection(
+                bitmap = NativeMethods.CreateDIBSection(
                     screenDc,
                     ref bitmapInfo,
                     NativeMethods.DibRgbColors,
@@ -733,23 +761,39 @@ public sealed class InputStatusOverlay : IDisposable
                     0);
                 if (bitmap == 0 || bits == 0)
                 {
-                    _ = NativeMethods.DeleteDC(memoryDc);
                     throw new Win32Exception(Marshal.GetLastPInvokeError());
                 }
 
-                var previousBitmap = NativeMethods.SelectObject(memoryDc, bitmap);
+                previousBitmap = NativeMethods.SelectObject(memoryDc, bitmap);
                 var pixels = new byte[frame.ByteCount];
                 Marshal.Copy(frame.Pixels, pixels, 0, pixels.Length);
                 Marshal.Copy(pixels, 0, bits, pixels.Length);
-                return new LayeredWindowSurface(
+                var surface = new LayeredWindowSurface(
                     memoryDc,
                     bitmap,
                     previousBitmap,
                     frame.Width,
                     frame.Height);
+                ownershipTransferred = true;
+                return surface;
             }
             finally
             {
+                if (!ownershipTransferred)
+                {
+                    if (previousBitmap != 0 && memoryDc != 0)
+                    {
+                        _ = NativeMethods.SelectObject(memoryDc, previousBitmap);
+                    }
+                    if (bitmap != 0)
+                    {
+                        _ = NativeMethods.DeleteObject(bitmap);
+                    }
+                    if (memoryDc != 0)
+                    {
+                        _ = NativeMethods.DeleteDC(memoryDc);
+                    }
+                }
                 _ = NativeMethods.ReleaseDC(0, screenDc);
             }
         }
@@ -815,9 +859,10 @@ public sealed class InputStatusOverlay : IDisposable
         string Label,
         nint AnchorHwnd,
         bool Persistent,
-        uint DurationMilliseconds)
+        uint DurationMilliseconds,
+        TsfProfileSnapshot? InputProfile)
     {
-        internal static Presentation Hidden { get; } = new(string.Empty, 0, false, 0);
+        internal static Presentation Hidden { get; } = new(string.Empty, 0, false, 0, null);
         internal bool IsHidden => string.IsNullOrEmpty(Label);
     }
 
