@@ -151,6 +151,16 @@ public sealed class UiShellContractTests
     }
 
     [Fact]
+    public void Shared_context_engine_reuses_one_detection_result_per_native_event()
+    {
+        var root = FindRepositoryRoot();
+        var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "AppServices.cs"));
+
+        Assert.Contains("new RecentInputContextCache", source, StringComparison.Ordinal);
+        Assert.Contains("contextEngine: contextEngine", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Tray_host_uses_native_notification_area_and_survives_explorer_restart()
     {
         var root = FindRepositoryRoot();
@@ -599,6 +609,20 @@ public sealed class UiShellContractTests
         Assert.Contains("配置最近游戏", settings, StringComparison.Ordinal);
         Assert.Contains("CallNextHookEx", monitor, StringComparison.Ordinal);
         Assert.DoesNotContain("return 1;", monitor, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Game_text_entry_hook_is_started_only_when_a_hotkey_profile_exists()
+    {
+        var root = FindRepositoryRoot();
+        var services = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "AppServices.cs"));
+        var startBody = services[
+            services.IndexOf("public void Start()", StringComparison.Ordinal)..
+            services.IndexOf("public async ValueTask SetAutomationEnabledAsync", StringComparison.Ordinal)];
+
+        Assert.DoesNotContain("TryStartGameTextEntryHotkeyMonitor", startBody, StringComparison.Ordinal);
+        Assert.Contains("EnsureGameTextEntryHotkeyMonitorStarted", services, StringComparison.Ordinal);
+        Assert.Contains("GameTextEntryDetectionMode.HotkeyProfile", services, StringComparison.Ordinal);
     }
 
     [Fact]

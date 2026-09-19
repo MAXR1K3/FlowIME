@@ -24,9 +24,11 @@ internal sealed class RollingFileTraceListener : TraceListener
     private readonly long _maxBytes;
     private readonly int _archiveCount;
     private readonly Encoding _encoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
+    private readonly TimeSpan _flushInterval;
     private readonly Timer _flushTimer;
 
     private StreamWriter? _writer;
+    private bool _flushScheduled;
     private long _currentBytes;
     private long _unflushedBytes;
     private long _entryCount;
@@ -67,6 +69,7 @@ internal sealed class RollingFileTraceListener : TraceListener
         _path = path;
         _maxBytes = maxBytes;
         _archiveCount = archiveCount;
+        _flushInterval = effectiveFlushInterval;
 
         var directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory))
@@ -78,8 +81,8 @@ internal sealed class RollingFileTraceListener : TraceListener
         _flushTimer = new Timer(
             static state => ((RollingFileTraceListener)state!).Flush(),
             this,
-            effectiveFlushInterval,
-            effectiveFlushInterval);
+            Timeout.InfiniteTimeSpan,
+            Timeout.InfiniteTimeSpan);
     }
 
     public override void Write(string? message) => WriteCore(message ?? string.Empty);
@@ -102,11 +105,29 @@ internal sealed class RollingFileTraceListener : TraceListener
         }
     }
 
+    internal bool FlushScheduledForTest
+    {
+        get
+        {
+            lock (_sync)
+            {
+                return _flushScheduled;
+            }
+        }
+    }
+
     public override void Flush()
     {
         lock (_sync)
         {
-            if (_disposed || _unflushedBytes == 0)
+            if (_disposed)
+            {
+                return;
+            }
+
+            _flushScheduled = false;
+            _ = _flushTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            if (_unflushedBytes == 0)
             {
                 return;
             }
@@ -130,11 +151,6 @@ internal sealed class RollingFileTraceListener : TraceListener
 
     protected override void Dispose(bool disposing)
     {
-        if (disposing)
-        {
-            _flushTimer.Dispose();
-        }
-
         lock (_sync)
         {
             if (_disposed)
@@ -143,8 +159,10 @@ internal sealed class RollingFileTraceListener : TraceListener
             }
 
             _disposed = true;
+            _flushScheduled = false;
             if (disposing)
             {
+                _flushTimer.Dispose();
                 try
                 {
                     _writer?.Dispose();
@@ -185,6 +203,12 @@ internal sealed class RollingFileTraceListener : TraceListener
                 _unflushedBytes += bytes;
                 _entryCount++;
                 _writtenBytes += bytes;
+
+                if (!_flushScheduled)
+                {
+                    _flushScheduled = true;
+                    _ = _flushTimer.Change(_flushInterval, Timeout.InfiniteTimeSpan);
+                }
             }
             catch (IOException ex)
             {

@@ -116,6 +116,43 @@ public sealed class RollingFileTraceListenerTests : IDisposable
         Assert.Null(snapshot.LastErrorType);
     }
 
+    [Fact]
+    public void Idle_listener_does_not_wake_up_without_pending_writes()
+    {
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "automation.log");
+
+        using var listener = new RollingFileTraceListener(
+            path,
+            flushInterval: TimeSpan.FromMilliseconds(20));
+
+        Thread.Sleep(100);
+
+        Assert.Equal(0, listener.GetSnapshot().FlushCount);
+        Assert.False(listener.FlushScheduledForTest);
+    }
+
+    [Fact]
+    public void First_buffered_write_schedules_one_deferred_flush()
+    {
+        Directory.CreateDirectory(_root);
+        var path = Path.Combine(_root, "automation.log");
+
+        using var listener = new RollingFileTraceListener(
+            path,
+            flushInterval: TimeSpan.FromHours(1));
+        listener.WriteLine("pending");
+        listener.WriteLine("still-pending");
+
+        Assert.True(listener.FlushScheduledForTest);
+        Assert.Equal(0, listener.GetSnapshot().FlushCount);
+
+        listener.Flush();
+
+        Assert.False(listener.FlushScheduledForTest);
+        Assert.Equal(1, listener.GetSnapshot().FlushCount);
+    }
+
     private static string ReadAllTextShared(string path)
     {
         using var stream = new FileStream(

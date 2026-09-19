@@ -90,14 +90,15 @@ public sealed class AppServices : IAsyncDisposable
         var resolver = new WindowResolver();
         var ruleEngine = new RuleEngine();
         _gameplayEligibilityDetector = new GameplayEligibilityDetector();
-        var contextEngine = new InputContextEngine([
-            new FullscreenWindowDetector(),
-            _gameplayEligibilityDetector,
-            new StandardGameTextEntryDetector(
-                _gameTextEntryProfiles,
-                _gameTextEntryRuntimeState),
-            new GameTextEntryRuntimeDetector(_gameTextEntryRuntimeState)
-        ]);
+        var contextEngine = new RecentInputContextCache(
+            new InputContextEngine([
+                new FullscreenWindowDetector(),
+                _gameplayEligibilityDetector,
+                new StandardGameTextEntryDetector(
+                    _gameTextEntryProfiles,
+                    _gameTextEntryRuntimeState),
+                new GameTextEntryRuntimeDetector(_gameTextEntryRuntimeState)
+            ]));
         var decisionEngine = new InputDecisionEngine(
             ruleEngine,
             [
@@ -166,7 +167,6 @@ public sealed class AppServices : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         TryStartGameplayHotkeyGuard();
-        TryStartGameTextEntryHotkeyMonitor();
         TryStartInputStatusOverlay();
         _automation.Start();
         ForegroundContext.Start();
@@ -312,6 +312,7 @@ public sealed class AppServices : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _gameTextEntryProfiles.ReplaceProfiles(profiles);
+        EnsureGameTextEntryHotkeyMonitorStarted();
 
         if (_gameTextEntryRuntimeState.GetSnapshot().Active)
         {
@@ -343,6 +344,7 @@ public sealed class AppServices : IAsyncDisposable
             .ReplaceProfilesAsync(validator.Profiles, cancellationToken)
             .ConfigureAwait(false);
         _gameTextEntryProfiles.ReplaceProfiles(validator.Profiles);
+        EnsureGameTextEntryHotkeyMonitorStarted();
 
         var runtime = _gameTextEntryRuntimeState.GetSnapshot();
         if (runtime.Active &&
@@ -992,6 +994,7 @@ public sealed class AppServices : IAsyncDisposable
                 .GetProfilesAsync()
                 .ConfigureAwait(false);
             _gameTextEntryProfiles.ReplaceProfiles(profiles);
+            EnsureGameTextEntryHotkeyMonitorStarted();
 
             if (ForegroundContext.Current is { } current)
             {
@@ -1076,6 +1079,16 @@ public sealed class AppServices : IAsyncDisposable
             Trace.WriteLine(
                 $"[FlowIME.GameplayHotkey] utc={DateTimeOffset.UtcNow:O} " +
                 $"stage=hook-install result=failed type={ex.GetType().Name}");
+        }
+    }
+
+    private void EnsureGameTextEntryHotkeyMonitorStarted()
+    {
+        if (_gameTextEntryProfiles.Profiles.Any(profile =>
+                profile.Enabled &&
+                profile.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile)))
+        {
+            TryStartGameTextEntryHotkeyMonitor();
         }
     }
 
