@@ -68,7 +68,7 @@ public sealed class StandardGameTextEntryDetector : IInputContextDetector
             return ValueTask.FromResult<IReadOnlyList<InputContextSignal>>([]);
         }
 
-        var application = ApplicationIdentity.FromWindow(request.Window);
+        var application = FlowIME.Core.Context.ApplicationIdentity.FromWindow(request.Window);
         var profile = _profiles.Resolve(application);
         if (profile is null ||
             !profile.DetectionMode.HasFlag(GameTextEntryDetectionMode.StandardTextControl))
@@ -157,7 +157,7 @@ public sealed class StandardGameTextEntryDetector : IInputContextDetector
     }
 
     private void DeactivateOwnedSession(
-        ApplicationIdentity application,
+        FlowIME.Core.Context.ApplicationIdentity application,
         ContextDetectionRequest request,
         string reason)
     {

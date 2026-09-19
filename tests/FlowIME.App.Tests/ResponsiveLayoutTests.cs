@@ -4,6 +4,15 @@ namespace FlowIME.App.Tests;
 
 public sealed class ResponsiveLayoutTests
 {
+    [Fact]
+    public void Rule_row_content_is_vertically_centered_inside_the_full_item_height()
+    {
+        var doc = Xaml("Views/RulesPage.xaml");
+        var content = Named(doc, "RuleContentGrid");
+
+        Assert.Equal("Center", (string?)content.Attribute("VerticalAlignment"));
+    }
+
     private static string Root
     {
         get
@@ -74,6 +83,27 @@ public sealed class ResponsiveLayoutTests
         var nameField = doc.Descendants().Single(e => (string?)e.Attribute("Header") == "规则名称");
         Assert.Contains(nameField.Ancestors(), e => e.Name.LocalName == "Expander");
         Assert.Equal("{StaticResource FlowSecondaryButtonStyle}", (string?)Named(doc, "BrowseExecutableButton").Attribute("Style"));
+    }
+
+    [Fact]
+    public void Edit_rule_dialog_uses_two_columns_and_keeps_expanded_content_scrollable()
+    {
+        var doc = Xaml("Views/EditRuleDialog.xaml");
+        var source = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "Views", "EditRuleDialog.xaml.cs"));
+
+        Assert.Contains("scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto", source);
+        Assert.Contains("scroll.VerticalScrollMode = ScrollMode.Enabled", source);
+        Assert.Equal("0", (string?)Named(doc, "BasicSettingsColumn").Attribute("Grid.Column"));
+        Assert.Equal("1", (string?)Named(doc, "AdvancedSettingsColumn").Attribute("Grid.Column"));
+        Assert.Contains(Named(doc, "AdvancedSettingsColumn").Descendants(), e => e.Name.LocalName == "Expander");
+
+        var resources = doc.Descendants()
+            .Where(e => e.Name.LocalName == "Double")
+            .ToDictionary(
+                e => (string)e.Attribute(XName.Get("Key", "http://schemas.microsoft.com/winfx/2006/xaml"))!,
+                e => e.Value);
+        Assert.Equal("900", resources["ContentDialogMinWidth"]);
+        Assert.Equal("960", resources["ContentDialogMaxWidth"]);
     }
 
     [Fact]

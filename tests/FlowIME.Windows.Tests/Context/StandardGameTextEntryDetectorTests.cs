@@ -42,7 +42,7 @@ public sealed class StandardGameTextEntryDetectorTests
     public async Task Does_not_probe_on_non_focus_trigger_and_preserves_existing_runtime()
     {
         var window = Window();
-        var application = ApplicationIdentity.FromWindow(window);
+        var application = FlowIME.Core.Context.ApplicationIdentity.FromWindow(window);
         var runtime = new GameTextEntryRuntimeState();
         _ = runtime.Activate(
             application,
@@ -152,7 +152,7 @@ public sealed class StandardGameTextEntryDetectorTests
     public async Task Non_text_focus_deactivates_owned_standard_session()
     {
         var window = Window();
-        var application = ApplicationIdentity.FromWindow(window);
+        var application = FlowIME.Core.Context.ApplicationIdentity.FromWindow(window);
         var runtime = new GameTextEntryRuntimeState();
         _ = runtime.Activate(
             application,
@@ -184,7 +184,7 @@ public sealed class StandardGameTextEntryDetectorTests
     public async Task Negative_standard_focus_does_not_clear_hotkey_owned_session()
     {
         var window = Window();
-        var application = ApplicationIdentity.FromWindow(window);
+        var application = FlowIME.Core.Context.ApplicationIdentity.FromWindow(window);
         var runtime = new GameTextEntryRuntimeState();
         _ = runtime.Activate(
             application,
@@ -255,7 +255,7 @@ public sealed class StandardGameTextEntryDetectorTests
             new GameTextEntryProfile
             {
                 Id = "chat",
-                ApplicationIdentityKey = ApplicationIdentity.FromWindow(window).Key,
+                ApplicationIdentityKey = FlowIME.Core.Context.ApplicationIdentity.FromWindow(window).Key,
                 DetectionMode = mode,
                 EnterGestures = mode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile)
                     ? [new(0x54)]

@@ -12,5 +12,16 @@ public sealed partial class EditRuleDialog : ContentDialog
         DataContext = ViewModel;
     }
 
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        // Keep the native action row fixed while expanded advanced settings scroll.
+        if (GetTemplateChild("ContentScrollViewer") is ScrollViewer scroll)
+        {
+            scroll.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+            scroll.VerticalScrollMode = ScrollMode.Enabled;
+        }
+    }
+
     public EditRuleViewModel ViewModel { get; }
 }

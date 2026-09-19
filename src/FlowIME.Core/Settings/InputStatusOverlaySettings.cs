@@ -33,7 +33,7 @@ public sealed record InputStatusOverlaySettings
 
     public InputStatusOverlaySize Size { get; init; } = InputStatusOverlaySize.Medium;
 
-    public int OpacityPercent { get; init; } = 92;
+    public int OpacityPercent { get; init; } = 100;
 
     public bool AnimationsEnabled { get; init; } = true;
 

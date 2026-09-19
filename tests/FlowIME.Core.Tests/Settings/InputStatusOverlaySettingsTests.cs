@@ -17,7 +17,7 @@ public sealed class InputStatusOverlaySettingsTests
 
         Assert.Equal(InputStatusOverlayPosition.BottomCenter, settings.Position);
         Assert.Equal(InputStatusOverlaySize.Medium, settings.Size);
-        Assert.Equal(92, settings.OpacityPercent);
+        Assert.Equal(100, settings.OpacityPercent);
         Assert.True(settings.AnimationsEnabled);
     }
 

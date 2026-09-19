@@ -103,4 +103,65 @@ public sealed class InputStatusOverlayPlacementTests
         Assert.Equal(560, point.X);
         Assert.Equal(770, point.Y);
     }
+
+    [Fact]
+    public void Caret_bounds_fall_back_to_ui_automation_when_win32_does_not_expose_a_caret()
+    {
+        var expected = new User32Native.Rect
+        {
+            Left = 640,
+            Top = 360,
+            Right = 642,
+            Bottom = 384
+        };
+        var resolver = new InputStatusCaretBoundsResolver(
+            _ => null,
+            _ => expected);
+
+        var actual = resolver.Resolve(new nint(123));
+
+        Assert.Equal(expected, actual);
+    }
+
+    [Fact]
+    public void Caret_bounds_prefer_win32_when_it_is_available()
+    {
+        var native = new User32Native.Rect
+        {
+            Left = 200,
+            Top = 100,
+            Right = 202,
+            Bottom = 124
+        };
+        var automationCalls = 0;
+        var resolver = new InputStatusCaretBoundsResolver(
+            _ => native,
+            _ =>
+            {
+                automationCalls++;
+                return null;
+            });
+
+        var actual = resolver.Resolve(new nint(123));
+
+        Assert.Equal(native, actual);
+        Assert.Equal(0, automationCalls);
+    }
+
+    [Theory]
+    [InlineData(false, 320)]
+    [InlineData(true, 332)]
+    public void Ui_automation_character_bounds_resolve_the_caret_edge(
+        bool useRightEdge,
+        int expectedX)
+    {
+        var bounds = UiAutomationCaretBoundsProvider.CreateCaretBounds(
+            new System.Windows.Rect(320, 180, 12, 24),
+            useRightEdge);
+
+        Assert.Equal(expectedX, bounds.Left);
+        Assert.Equal(expectedX + 1, bounds.Right);
+        Assert.Equal(180, bounds.Top);
+        Assert.Equal(204, bounds.Bottom);
+    }
 }

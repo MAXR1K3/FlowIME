@@ -314,7 +314,7 @@
 
                                 <StackPanel Grid.Row="2" Spacing="2" VerticalAlignment="Center">
                                     <TextBlock Text="不透明度" />
-                                    <TextBlock x:Name="InputStatusOverlayOpacityText" Text="92%" Style="{StaticResource FlowMutedTextStyle}" />
+                                    <TextBlock x:Name="InputStatusOverlayOpacityText" Text="100%" Style="{StaticResource FlowMutedTextStyle}" />
                                 </StackPanel>
                                 <Slider
                                     x:Name="InputStatusOverlayOpacitySlider"

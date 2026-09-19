@@ -56,6 +56,7 @@ public sealed class InputStatusOverlay : IDisposable
     private readonly object _diagnosticSync = new();
     private readonly ManualResetEventSlim _started = new(false);
     private readonly Thread _thread;
+    private readonly InputStatusCaretBoundsResolver _caretBoundsResolver;
     private readonly string _windowClassName = $"FlowIME.InputStatusOverlay.{Guid.NewGuid():N}";
     private readonly NativeMethods.WindowProc _windowProc;
 
@@ -89,6 +90,9 @@ public sealed class InputStatusOverlay : IDisposable
         }
 
         _settings = (initialSettings ?? InputStatusOverlaySettings.Default).Normalize();
+        _caretBoundsResolver = new InputStatusCaretBoundsResolver(
+            TryGetWin32CaretBounds,
+            UiAutomationCaretBoundsProvider.TryGetBounds);
         _windowProc = WindowProcedure;
         _thread = new Thread(ThreadMain)
         {
@@ -415,7 +419,7 @@ public sealed class InputStatusOverlay : IDisposable
             ? monitorInfo.Monitor
             : monitorInfo.WorkArea;
         var caretBounds = settings.Position == InputStatusOverlayPosition.Caret
-            ? TryGetCaretBounds(anchor)
+            ? _caretBoundsResolver.Resolve(anchor)
             : null;
         var point = InputStatusOverlayPlacement.Resolve(
             settings.Position,
@@ -620,7 +624,7 @@ public sealed class InputStatusOverlay : IDisposable
                (3d * t * t * (1d - second));
     }
 
-    private static User32Native.Rect? TryGetCaretBounds(nint anchor)
+    private static User32Native.Rect? TryGetWin32CaretBounds(nint anchor)
     {
         if (anchor == 0)
         {

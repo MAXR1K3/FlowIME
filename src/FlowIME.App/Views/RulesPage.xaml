@@ -315,7 +315,7 @@
                                             </VisualState>
                                         </VisualStateGroup>
                                     </VisualStateManager.VisualStateGroups>
-                                <Grid RowSpacing="8" ColumnSpacing="14">
+                                <Grid x:Name="RuleContentGrid" RowSpacing="8" ColumnSpacing="14" VerticalAlignment="Center">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
