@@ -9,11 +9,11 @@
     <PlatformTarget>x64</PlatformTarget>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <ApplicationIcon>Assets\FlowIME.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\Brand\Generated\FlowIME.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="Assets\FlowIME.Logo.png" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="Assets\FlowIME.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Brand\Generated\FlowIME.Mark.44.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\Brand\Generated\FlowIME.ico" CopyToOutputDirectory="PreserveNewest" />
     <None Include="../../LICENSE"
           Link="LICENSE"
           CopyToOutputDirectory="PreserveNewest"

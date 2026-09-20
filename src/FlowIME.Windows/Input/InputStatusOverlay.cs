@@ -166,9 +166,9 @@ public sealed class InputStatusOverlay : IDisposable
         }
 
         var normalized = label.Trim();
-        if (normalized.Length > 4)
+        if (normalized.Length > 12)
         {
-            normalized = normalized[..4];
+            normalized = normalized[..12];
         }
 
         var milliseconds = persistent

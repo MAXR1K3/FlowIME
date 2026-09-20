@@ -9,8 +9,22 @@ public sealed class ResponsiveLayoutTests
     {
         var doc = Xaml("Views/RulesPage.xaml");
         var content = Named(doc, "RuleContentGrid");
+        var card = Named(doc, "RuleCard");
+        var rulesList = Named(doc, "RulesList");
+        var itemStyle = rulesList
+            .Descendants()
+            .Single(node => node.Name.LocalName == "Style" && (string?)node.Attribute("TargetType") == "ListViewItem");
+        var verticalAlignment = itemStyle
+            .Elements()
+            .Single(node => node.Name.LocalName == "Setter" && (string?)node.Attribute("Property") == "VerticalContentAlignment");
 
         Assert.Equal("Center", (string?)content.Attribute("VerticalAlignment"));
+        Assert.Equal("Center", (string?)card.Attribute("VerticalAlignment"));
+        Assert.Equal("Center", (string?)verticalAlignment.Attribute("Value"));
+        var opticalOffset = content.Descendants().Single(node => node.Name.LocalName == "TranslateTransform");
+        Assert.Equal("6", (string?)opticalOffset.Attribute("Y"));
+        Assert.Equal("DataTemplate", card.Parent?.Name.LocalName);
+        Assert.DoesNotContain(card.Ancestors(), node => node.Name.LocalName == "UserControl");
     }
 
     private static string Root
@@ -50,6 +64,28 @@ public sealed class ResponsiveLayoutTests
     }
 
     [Fact]
+    public void Game_page_surfaces_live_detection_and_subscribes_to_runtime_changes()
+    {
+        var page = Xaml("Views/SettingsPage.xaml");
+        var source = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "Views", "SettingsPage.xaml.cs"));
+        var services = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "Services", "AppServices.cs"));
+
+        Assert.Equal("SettingsPage_Unloaded", (string?)page.Root!.Attribute("Unloaded"));
+        Assert.NotNull(Named(page, "CurrentGameStatusCard"));
+        Assert.NotNull(Named(page, "CurrentGameStatusTitle"));
+        Assert.NotNull(Named(page, "CurrentGameStatusDescription"));
+        Assert.NotNull(Named(page, "CurrentGameActiveIndicator"));
+        Assert.NotNull(Named(page, "CurrentGameInactiveIndicator"));
+        Assert.Contains("ActiveGameplayTargetChanged +=", source, StringComparison.Ordinal);
+        Assert.Contains("ActiveGameplayTargetChanged -=", source, StringComparison.Ordinal);
+        Assert.Contains("DispatcherQueue.TryEnqueue", source, StringComparison.Ordinal);
+        Assert.Contains("GetActiveGameplayTarget", source, StringComparison.Ordinal);
+        Assert.DoesNotContain("Application.Current.Resources[", source, StringComparison.Ordinal);
+        Assert.Contains("ActiveGameplayTargetChanged", services, StringComparison.Ordinal);
+        Assert.Contains("ShowGameplayDetectedOverlay", services, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Rule_hover_uses_local_rounded_native_presenter()
     {
         var doc = Xaml("Views/RulesPage.xaml");
@@ -59,7 +95,8 @@ public sealed class ResponsiveLayoutTests
         var presenter = style.Descendants().Single(e => e.Name.LocalName == "ListViewItemPresenter");
         Assert.Equal("{TemplateBinding CornerRadius}", (string?)presenter.Attribute("CornerRadius"));
         Assert.Contains(style.Elements(), e => (string?)e.Attribute("Property") == "CornerRadius" && (string?)e.Attribute("Value") == "12");
-        Assert.Equal("{StaticResource FlowRuleListItemStyle}", (string?)list.Attribute("ItemContainerStyle"));
+        var localStyle = list.Descendants().Single(e => e.Name.LocalName == "Style" && (string?)e.Attribute("TargetType") == "ListViewItem");
+        Assert.Equal("{StaticResource FlowRuleListItemStyle}", (string?)localStyle.Attribute("BasedOn"));
     }
 
     [Fact]
@@ -130,6 +167,17 @@ public sealed class ResponsiveLayoutTests
         var source = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "MainWindow.xaml.cs"));
         Assert.Contains("ContentFrame.Margin", source);
         Assert.Contains("NavigationViewDisplayMode.Minimal", source);
+    }
+
+    [Fact]
+    public void Main_window_disables_maximize_and_enforces_the_size_policy()
+    {
+        var source = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "MainWindow.xaml.cs"));
+
+        Assert.Contains("IsMaximizable = false", source, StringComparison.Ordinal);
+        Assert.Contains("_appWindow.Changed += OnAppWindowChanged", source, StringComparison.Ordinal);
+        Assert.Contains("MainWindowSizePolicy.Clamp", source, StringComparison.Ordinal);
+        Assert.Contains("_appWindow.Resize", source, StringComparison.Ordinal);
     }
 
     private static XDocument Xaml(string file) => XDocument.Load(Path.Combine(Root, "src", "FlowIME.App", file));

@@ -6,6 +6,7 @@ using FlowIME.App.ViewModels;
 using System.Diagnostics;
 using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
@@ -39,6 +40,7 @@ public sealed partial class SettingsPage : Page
     private InputStatusOverlaySettings? _pendingInputStatusOverlaySettings;
     private CancellationTokenSource? _overlayPreferenceSaveCancellation;
     private string _viewMode = "settings";
+    private AppServices? _subscribedGameplayServices;
 
     public SettingsPage()
     {
@@ -58,6 +60,8 @@ public sealed partial class SettingsPage : Page
 
         if (_viewMode == "game")
         {
+            SubscribeToGameplayDetection();
+            UpdateCurrentGameStatus();
             await RefreshGameplayKeyboardBaselineStateAsync();
             await RefreshGameplayHotkeyGuardStateAsync();
             await RefreshGameTextEntryProfileStateAsync();
@@ -66,6 +70,77 @@ public sealed partial class SettingsPage : Page
 
         RefreshStartupState();
         await RefreshInputStatusOverlayStateAsync();
+    }
+
+    private void SettingsPage_Unloaded(object sender, RoutedEventArgs e) =>
+        UnsubscribeFromGameplayDetection();
+
+    private void SubscribeToGameplayDetection()
+    {
+        var services = ((App)Application.Current).Services;
+        if (ReferenceEquals(_subscribedGameplayServices, services))
+        {
+            return;
+        }
+
+        UnsubscribeFromGameplayDetection();
+        services.ActiveGameplayTargetChanged += OnActiveGameplayTargetChanged;
+        _subscribedGameplayServices = services;
+    }
+
+    private void UnsubscribeFromGameplayDetection()
+    {
+        if (_subscribedGameplayServices is null)
+        {
+            return;
+        }
+
+        _subscribedGameplayServices.ActiveGameplayTargetChanged -= OnActiveGameplayTargetChanged;
+        _subscribedGameplayServices = null;
+    }
+
+    private void OnActiveGameplayTargetChanged(RecentGameplayTarget? target)
+    {
+        _ = target;
+        DispatcherQueue.TryEnqueue(async () =>
+        {
+            if (_viewMode != "game" || _subscribedGameplayServices is null)
+            {
+                return;
+            }
+
+            UpdateCurrentGameStatus();
+            try
+            {
+                await RefreshGameTextEntryProfileStateAsync();
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine(
+                    $"[FlowIME.GameLibrary] stage=live-refresh result=failed " +
+                    $"error={ex.GetType().Name}:{ex.Message}");
+            }
+        });
+    }
+
+    private void UpdateCurrentGameStatus()
+    {
+        var services = ((App)Application.Current).Services;
+        var status = GameplayDetectionStatusViewModel.Create(
+            services.GetActiveGameplayTarget(),
+            services.GetRecentGameplayTarget(),
+            DateTimeOffset.Now);
+        CurrentGameStatusTitle.Text = status.Title;
+        CurrentGameStatusDescription.Text = status.Description;
+        CurrentGameActiveIndicator.Visibility = status.IsActive
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+        CurrentGameInactiveIndicator.Visibility = status.IsActive
+            ? Visibility.Collapsed
+            : Visibility.Visible;
+        AutomationProperties.SetName(
+            CurrentGameStatusCard,
+            $"{status.Title}。{status.Description}");
     }
 
     private void ApplyViewMode()

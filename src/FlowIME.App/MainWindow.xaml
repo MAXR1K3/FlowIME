@@ -21,7 +21,7 @@
             Title="FlowIME"
             Subtitle="让输入状态跟随你的使用场景">
             <TitleBar.IconSource>
-                <ImageIconSource ImageSource="/Assets/FlowIME.Logo.png" />
+                <ImageIconSource ImageSource="/Assets/Brand/Generated/FlowIME.Mark.44.png" />
             </TitleBar.IconSource>
         </TitleBar>
 

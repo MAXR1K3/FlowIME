@@ -17,4 +17,12 @@ public sealed class LaunchOptionsTests
         Assert.False(LaunchOptions.ShouldStartHidden([]));
         Assert.False(LaunchOptions.ShouldStartHidden(["--other"]));
     }
+
+    [Fact]
+    public void Shutdown_argument_requests_primary_instance_exit()
+    {
+        Assert.True(LaunchOptions.ShouldRequestExit(["--shutdown"]));
+        Assert.True(LaunchOptions.ShouldRequestExit(["--SHUTDOWN"]));
+        Assert.False(LaunchOptions.ShouldRequestExit(["--background"]));
+    }
 }

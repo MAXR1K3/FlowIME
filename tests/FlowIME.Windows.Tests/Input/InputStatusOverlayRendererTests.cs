@@ -66,6 +66,24 @@ public sealed class InputStatusOverlayRendererTests
     }
 
     [Fact]
+    public void Render_expands_the_surface_for_a_game_detection_message()
+    {
+        using var compact = InputStatusOverlayRenderer.Render(
+            "US",
+            InputStatusOverlaySize.Medium,
+            dpi: 96,
+            opacityPercent: 92);
+        using var detection = InputStatusOverlayRenderer.Render(
+            "游戏已识别",
+            InputStatusOverlaySize.Medium,
+            dpi: 96,
+            opacityPercent: 92);
+
+        Assert.True(detection.Width > compact.Width);
+        Assert.Equal(compact.Height, detection.Height);
+    }
+
+    [Fact]
     public void Render_draws_the_supplied_input_method_brand_icon_before_the_language_label()
     {
         using var icon = new SKBitmap(16, 16);

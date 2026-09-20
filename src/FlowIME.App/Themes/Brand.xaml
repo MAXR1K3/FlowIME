@@ -28,6 +28,7 @@
                     <SolidColorBrush x:Key="FlowHeroBackgroundBrush" Color="#F1E9DB" />
                     <SolidColorBrush x:Key="FlowAccentSoftBrush" Color="#E8E1D5" />
                     <SolidColorBrush x:Key="FlowSuccessSoftBrush" Color="#E7F0E6" />
+                    <SolidColorBrush x:Key="FlowSuccessBrush" Color="#2E7D32" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="AccentButtonBackground" Color="#D8B394" />
@@ -57,6 +58,7 @@
                     <SolidColorBrush x:Key="FlowHeroBackgroundBrush" Color="#2A6F432F" />
                     <SolidColorBrush x:Key="FlowAccentSoftBrush" Color="#246F432F" />
                     <SolidColorBrush x:Key="FlowSuccessSoftBrush" Color="#102FA34A" />
+                    <SolidColorBrush x:Key="FlowSuccessBrush" Color="#72C47C" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 </ResourceDictionary>

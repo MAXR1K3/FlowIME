@@ -9,6 +9,7 @@ namespace FlowIME.App.Services;
 public sealed class ForegroundContextService : IAsyncDisposable
 {
     private readonly object _sync = new();
+    private readonly object _notificationSync = new();
     private readonly IForegroundWindowSource _foregroundSource;
     private readonly IInputFocusSource? _focusSource;
     private readonly IWindowResolver _windowResolver;
@@ -21,6 +22,9 @@ public sealed class ForegroundContextService : IAsyncDisposable
 
     private CancellationTokenSource? _currentCancellation;
     private Task _currentTask = Task.CompletedTask;
+    private long _generation;
+    private long _publicationSequence;
+    private long _lastNotifiedSequence;
     private bool _started;
     private bool _disposed;
 
@@ -133,7 +137,13 @@ public sealed class ForegroundContextService : IAsyncDisposable
     public async ValueTask RefreshRuleMatchAsync(
         CancellationToken cancellationToken = default)
     {
-        var current = Current;
+        CurrentStateSnapshot? current;
+        long generation;
+        lock (_sync)
+        {
+            current = Current;
+            generation = _generation;
+        }
         if (current is null)
         {
             return;
@@ -162,8 +172,7 @@ public sealed class ForegroundContextService : IAsyncDisposable
             Decision = decision
         };
 
-        Current = refreshed;
-        StateChanged?.Invoke(refreshed);
+        TryPublish(refreshed, generation, cancellationToken);
     }
 
     public async ValueTask WaitForIdleAsync(CancellationToken cancellationToken = default)
@@ -190,6 +199,7 @@ public sealed class ForegroundContextService : IAsyncDisposable
             }
 
             _disposed = true;
+            _generation++;
             if (_started)
             {
                 _foregroundSource.ForegroundWindowChanged -= OnForegroundWindowChanged;
@@ -277,6 +287,7 @@ public sealed class ForegroundContextService : IAsyncDisposable
             previous = _currentCancellation;
             previousTask = _currentTask;
             previous?.Cancel();
+            var generation = ++_generation;
             _currentCancellation = cancellation;
             _currentTask = ProcessAsync(
                 hwnd,
@@ -285,6 +296,7 @@ public sealed class ForegroundContextService : IAsyncDisposable
                 timestamp,
                 focusObjectId,
                 focusChildId,
+                generation,
                 cancellation.Token);
         }
 
@@ -301,6 +313,7 @@ public sealed class ForegroundContextService : IAsyncDisposable
         DateTimeOffset timestamp,
         int focusObjectId,
         int focusChildId,
+        long generation,
         CancellationToken cancellationToken)
     {
         try
@@ -346,11 +359,50 @@ public sealed class ForegroundContextService : IAsyncDisposable
                 context,
                 decision);
 
-            Current = snapshot;
-            StateChanged?.Invoke(snapshot);
+            TryPublish(snapshot, generation, cancellationToken);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+        }
+    }
+
+    private void TryPublish(
+        CurrentStateSnapshot snapshot,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        Action<CurrentStateSnapshot>? handler;
+        long sequence;
+        lock (_sync)
+        {
+            if (_disposed || generation != _generation || cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            Current = snapshot;
+            sequence = ++_publicationSequence;
+            handler = StateChanged;
+        }
+
+        if (handler is null)
+        {
+            return;
+        }
+
+        lock (_notificationSync)
+        {
+            lock (_sync)
+            {
+                if (sequence <= _lastNotifiedSequence)
+                {
+                    return;
+                }
+
+                _lastNotifiedSequence = sequence;
+            }
+
+            handler(snapshot);
         }
     }
 

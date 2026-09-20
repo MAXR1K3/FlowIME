@@ -30,14 +30,26 @@ public partial class App : Application
     {
         var commandLineArguments = Environment.GetCommandLineArgs().Skip(1).ToArray();
         var startHidden = LaunchOptions.ShouldStartHidden(commandLineArguments);
+        var requestExit = LaunchOptions.ShouldRequestExit(commandLineArguments);
 
         if (!_singleInstance.IsPrimary)
         {
-            if (!startHidden)
+            if (requestExit)
+            {
+                _singleInstance.SignalPrimaryExit();
+            }
+            else if (!startHidden)
             {
                 _singleInstance.SignalPrimary();
             }
 
+            _singleInstance.Dispose();
+            Exit();
+            return;
+        }
+
+        if (requestExit)
+        {
             _singleInstance.Dispose();
             Exit();
             return;
@@ -53,10 +65,9 @@ public partial class App : Application
         _trayIcon = TryCreateTrayIcon();
         _window.CloseToTrayEnabled = _trayIcon is not null;
 
-        _singleInstance.StartListening(() =>
-        {
-            _dispatcherQueue?.TryEnqueue(ShowMainWindow);
-        });
+        _singleInstance.StartListening(
+            () => _dispatcherQueue?.TryEnqueue(ShowMainWindow),
+            () => _dispatcherQueue?.TryEnqueue(RequestExit));
 
         if (!startHidden || _trayIcon is null)
         {
@@ -141,13 +152,16 @@ public partial class App : Application
         _trayIcon?.Dispose();
         _trayIcon = null;
 
-        _singleInstance.Dispose();
-
         if (_services is not null)
         {
             await _services.DisposeAsync();
             _services = null;
         }
+
+        // Keep ownership until all application services have released files,
+        // hooks and user-data writers. A replacement instance cannot become
+        // primary while teardown is still in progress.
+        _singleInstance.Dispose();
 
         Exit();
     }

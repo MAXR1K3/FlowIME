@@ -260,14 +260,18 @@
                     ScrollViewer.HorizontalScrollMode="Disabled"
                     SelectionMode="None"
                     IsItemClickEnabled="True"
-                    ItemClick="RulesList_ItemClick"
-                    ItemContainerStyle="{StaticResource FlowRuleListItemStyle}">
+                    ItemClick="RulesList_ItemClick">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem" BasedOn="{StaticResource FlowRuleListItemStyle}">
+                            <Setter Property="VerticalContentAlignment" Value="Center" />
+                        </Style>
+                    </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
                         <DataTemplate x:DataType="viewModels:RuleListItemViewModel">
-                            <UserControl HorizontalContentAlignment="Stretch">
                             <Border
                                 x:Name="RuleCard"
                                 Padding="16,14"
+                                VerticalAlignment="Center"
                                 BorderBrush="{ThemeResource FlowCardBorderBrush}"
                                 BorderThickness="0,0,0,1"
                                 Background="Transparent" Loaded="RuleCard_Loaded">
@@ -317,6 +321,10 @@
                                         </VisualStateGroup>
                                     </VisualStateManager.VisualStateGroups>
                                 <Grid x:Name="RuleContentGrid" RowSpacing="8" ColumnSpacing="14" VerticalAlignment="Center">
+                                    <!-- WinUI's ListViewItemPresenter renders template content optically high at the supported window scale. -->
+                                    <Grid.RenderTransform>
+                                        <TranslateTransform Y="6" />
+                                    </Grid.RenderTransform>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
@@ -433,7 +441,6 @@
                                     </StackPanel>
                                 </Grid>
                             </Border>
-                            </UserControl>
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>

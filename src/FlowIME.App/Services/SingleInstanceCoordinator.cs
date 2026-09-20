@@ -2,24 +2,28 @@ namespace FlowIME.App.Services;
 
 /// <summary>
 /// Keeps FlowIME single-instance without tying process activation to the UI layer.
-/// A second process only signals the primary process to show its existing window.
+/// A second process can ask the primary process to show its window or shut down.
 /// </summary>
 internal sealed class SingleInstanceCoordinator : IDisposable
 {
     private const string DefaultMutexName = @"Local\FlowIME.SingleInstance";
     private const string DefaultShowEventName = @"Local\FlowIME.ShowMainWindow";
+    private const string DefaultExitEventName = @"Local\FlowIME.Exit";
 
     private readonly Mutex _mutex;
     private readonly EventWaitHandle _showEvent;
+    private readonly EventWaitHandle _exitEvent;
     private readonly CancellationTokenSource _listenerCancellation = new();
     private Task? _listenerTask;
     private Action? _showRequested;
+    private Action? _exitRequested;
     private bool _ownsMutex;
     private bool _disposed;
 
     internal SingleInstanceCoordinator(
         string mutexName = DefaultMutexName,
-        string showEventName = DefaultShowEventName)
+        string showEventName = DefaultShowEventName,
+        string exitEventName = DefaultExitEventName)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -31,6 +35,11 @@ internal sealed class SingleInstanceCoordinator : IDisposable
             initialState: false,
             EventResetMode.AutoReset,
             showEventName);
+
+        _exitEvent = new EventWaitHandle(
+            initialState: false,
+            EventResetMode.AutoReset,
+            exitEventName);
 
         _mutex = new Mutex(initiallyOwned: false, mutexName);
         try
@@ -47,7 +56,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
 
     internal bool IsPrimary => _ownsMutex;
 
-    internal void StartListening(Action showRequested)
+    internal void StartListening(Action showRequested, Action? exitRequested = null)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         ArgumentNullException.ThrowIfNull(showRequested);
@@ -64,6 +73,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         }
 
         _showRequested = showRequested;
+        _exitRequested = exitRequested;
         _listenerTask = Task.Run(ListenLoop);
     }
 
@@ -76,30 +86,46 @@ internal sealed class SingleInstanceCoordinator : IDisposable
         }
     }
 
+    internal void SignalPrimaryExit()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!IsPrimary)
+        {
+            _exitEvent.Set();
+        }
+    }
+
     private void ListenLoop()
     {
         var waitHandles = new WaitHandle[]
         {
             _showEvent,
+            _exitEvent,
             _listenerCancellation.Token.WaitHandle
         };
 
         while (!_listenerCancellation.IsCancellationRequested)
         {
             var signaled = WaitHandle.WaitAny(waitHandles);
-            if (signaled != 0)
+            if (signaled == 2)
             {
                 return;
             }
 
             try
             {
-                _showRequested?.Invoke();
+                if (signaled == 0)
+                {
+                    _showRequested?.Invoke();
+                }
+                else
+                {
+                    _exitRequested?.Invoke();
+                }
             }
             catch
             {
-                // A failed foreground restore must not kill the instance listener.
-                // The next manual launch can signal the primary again.
+                // A failed activation or shutdown request must not kill the listener.
             }
         }
     }
@@ -113,7 +139,6 @@ internal sealed class SingleInstanceCoordinator : IDisposable
 
         _disposed = true;
         _listenerCancellation.Cancel();
-        _showEvent.Set();
 
         if (_listenerTask is not null)
         {
@@ -141,6 +166,7 @@ internal sealed class SingleInstanceCoordinator : IDisposable
 
         _listenerCancellation.Dispose();
         _showEvent.Dispose();
+        _exitEvent.Dispose();
         _mutex.Dispose();
     }
 }

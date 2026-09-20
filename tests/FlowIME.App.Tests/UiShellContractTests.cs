@@ -842,10 +842,10 @@ public sealed class UiShellContractTests
         var home = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "HomePage.xaml"));
         var project = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "FlowIME.App.csproj"));
 
-        Assert.Contains("FlowIME.Logo.png", mainWindow, StringComparison.Ordinal);
+        Assert.Contains("Assets/Brand/Generated/FlowIME.Mark.44.png", mainWindow, StringComparison.Ordinal);
         Assert.Contains("ImageIconSource", mainWindow, StringComparison.Ordinal);
-        Assert.Contains("Assets\\FlowIME.Logo.png", project, StringComparison.Ordinal);
-        var logo = File.ReadAllBytes(Path.Combine(root, "src", "FlowIME.App", "Assets", "FlowIME.Logo.png"));
+        Assert.Contains("Assets\\Brand\\Generated\\FlowIME.Mark.44.png", project, StringComparison.Ordinal);
+        var logo = File.ReadAllBytes(Path.Combine(root, "src", "FlowIME.App", "Assets", "Brand", "Generated", "FlowIME.Mark.44.png"));
         Assert.Equal(new byte[] { 0, 0, 0, 44 }, logo[16..20]);
         Assert.Equal(new byte[] { 0, 0, 0, 44 }, logo[20..24]);
         Assert.Contains("x:Name=\"CurrentAppImage\"", home, StringComparison.Ordinal);
@@ -863,13 +863,15 @@ public sealed class UiShellContractTests
         var project = File.ReadAllText(Path.Combine(appRoot, "FlowIME.App.csproj"));
         var mainWindow = File.ReadAllText(Path.Combine(appRoot, "MainWindow.xaml.cs"));
         var tray = File.ReadAllText(Path.Combine(appRoot, "Services", "TrayIconService.cs"));
-        var iconPath = Path.Combine(appRoot, "Assets", "FlowIME.ico");
+        var iconPath = Path.Combine(appRoot, "Assets", "Brand", "Generated", "FlowIME.ico");
 
-        Assert.Contains("<ApplicationIcon>Assets\\FlowIME.ico</ApplicationIcon>", project, StringComparison.Ordinal);
-        Assert.Contains("Assets\\FlowIME.ico", project, StringComparison.Ordinal);
+        Assert.Contains("<ApplicationIcon>Assets\\Brand\\Generated\\FlowIME.ico</ApplicationIcon>", project, StringComparison.Ordinal);
+        Assert.Contains("Assets\\Brand\\Generated\\FlowIME.ico", project, StringComparison.Ordinal);
         Assert.Contains("_appWindow.SetIcon", mainWindow, StringComparison.Ordinal);
+        Assert.Contains("\"Brand\"", mainWindow, StringComparison.Ordinal);
         Assert.Contains("FlowIME.ico", mainWindow, StringComparison.Ordinal);
         Assert.Contains("LoadImageW", tray, StringComparison.Ordinal);
+        Assert.Contains("\"Brand\"", tray, StringComparison.Ordinal);
         Assert.Contains("FlowIME.ico", tray, StringComparison.Ordinal);
         Assert.DoesNotContain("LoadIconW(0, IdiApplication)", tray, StringComparison.Ordinal);
 

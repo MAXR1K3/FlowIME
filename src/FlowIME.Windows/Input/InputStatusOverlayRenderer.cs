@@ -58,6 +58,14 @@ internal static class InputStatusOverlayRenderer
             InputStatusOverlaySize.Large => new OverlayVisualMetrics(104, 48, 14, 19, 22),
             _ => new OverlayVisualMetrics(84, 40, 12, 16, 18)
         };
+        var extraCharacters = Math.Max(0, label.Length - 4);
+        if (extraCharacters > 0)
+        {
+            logical = logical with
+            {
+                Width = logical.Width + Math.Min(220, extraCharacters * 20)
+            };
+        }
         var palette = OverlayPalette.For(colorScheme);
         var shadowPadding = Math.Max(6, (int)Math.Ceiling(8 * scale));
         var surfaceWidth = Math.Max(1, (int)Math.Round(logical.Width * scale));

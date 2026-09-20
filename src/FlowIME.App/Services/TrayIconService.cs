@@ -112,7 +112,12 @@ internal sealed class TrayIconService : IDisposable
 
             _icon = LoadImageW(
                 0,
-                Path.Combine(AppContext.BaseDirectory, "Assets", "FlowIME.ico"),
+                Path.Combine(
+                    AppContext.BaseDirectory,
+                    "Assets",
+                    "Brand",
+                    "Generated",
+                    "FlowIME.ico"),
                 ImageIcon,
                 0,
                 0,

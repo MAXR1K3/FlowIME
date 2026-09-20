@@ -56,6 +56,7 @@ public sealed class AppServices : IAsyncDisposable
     private CancellationTokenSource? _gameTextEntryHotkeyCancellation;
     private Task _gameTextEntryHotkeyTask = Task.CompletedTask;
     private RecentGameplayTarget? _recentGameplayTarget;
+    private readonly ActiveGameplayTargetTracker _activeGameplayTargetTracker = new();
     private long _gameplayExitRestoreCount;
     private DateTimeOffset? _gameplayExitRestoreLastAt;
     private string _gameplayExitRestoreLastTarget = "none";
@@ -163,6 +164,8 @@ public sealed class AppServices : IAsyncDisposable
     public bool IsAutomationEnabled => Volatile.Read(ref _automationEnabled);
 
     public event Action<bool>? AutomationEnabledChanged;
+
+    public event Action<RecentGameplayTarget?>? ActiveGameplayTargetChanged;
 
     public void Start()
     {
@@ -325,6 +328,12 @@ public sealed class AppServices : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         return Volatile.Read(ref _recentGameplayTarget);
+    }
+
+    public RecentGameplayTarget? GetActiveGameplayTarget()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        return _activeGameplayTargetTracker.Current;
     }
 
     public async ValueTask SaveGameTextEntryProfileAsync(
@@ -1282,14 +1291,7 @@ public sealed class AppServices : IAsyncDisposable
         try
         {
             var isGameplay = snapshot.Context?.HasSignal(InputContextSignalKind.Game) == true;
-            if (isGameplay && snapshot.Context is { } gameplayContext)
-            {
-                Volatile.Write(ref _recentGameplayTarget, new RecentGameplayTarget(
-                    gameplayContext.Application.Key,
-                    snapshot.Window.ProcessName,
-                    DateTimeOffset.UtcNow,
-                    snapshot.Window.ExecutablePath));
-            }
+            var detectedNewTarget = UpdateActiveGameplayTarget(snapshot, isGameplay);
 
             if (!isGameplay)
             {
@@ -1318,12 +1320,47 @@ public sealed class AppServices : IAsyncDisposable
                 }
 
                 UpdateInputStatusOverlay(snapshot);
+                if (detectedNewTarget)
+                {
+                    ShowGameplayDetectedOverlay(snapshot);
+                }
             }
         }
         catch (ObjectDisposedException)
         {
         }
     }
+
+    private bool UpdateActiveGameplayTarget(CurrentStateSnapshot snapshot, bool isGameplay)
+    {
+        RecentGameplayTarget? next = null;
+        if (isGameplay && snapshot.Context is { } gameplayContext)
+        {
+            next = new RecentGameplayTarget(
+                gameplayContext.Application.Key,
+                snapshot.Window.ProcessName,
+                DateTimeOffset.UtcNow,
+                snapshot.Window.ExecutablePath);
+            Volatile.Write(ref _recentGameplayTarget, next);
+        }
+
+        var transition = _activeGameplayTargetTracker.Update(next);
+        if (!transition.Changed)
+        {
+            return false;
+        }
+
+        ActiveGameplayTargetChanged?.Invoke(transition.ActiveTarget);
+        return transition.Entered;
+    }
+
+    private void ShowGameplayDetectedOverlay(CurrentStateSnapshot snapshot) =>
+        _inputStatusOverlay.Show(
+            "游戏已识别",
+            snapshot.Window.Hwnd,
+            persistent: false,
+            duration: TimeSpan.FromMilliseconds(2400),
+            focusHwnd: snapshot.Context?.FocusHwnd ?? 0);
 
     private void RequestGameTextEntryRefresh()
     {

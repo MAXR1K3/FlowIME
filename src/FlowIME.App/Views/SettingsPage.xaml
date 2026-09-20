@@ -3,7 +3,8 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:layout="using:FlowIME.App.Layout"
-    Loaded="SettingsPage_Loaded">
+    Loaded="SettingsPage_Loaded"
+    Unloaded="SettingsPage_Unloaded">
 
     <ScrollViewer HorizontalAlignment="Stretch"
         HorizontalScrollBarVisibility="Disabled"
@@ -506,6 +507,39 @@
                         Text="集中管理每款游戏的聊天输入；扫描不会覆盖已有配置。"
                         Style="{StaticResource FlowMutedTextStyle}" />
                 </StackPanel>
+
+                <Border
+                    x:Name="CurrentGameStatusCard"
+                    Padding="16,14"
+                    Style="{StaticResource FlowCardStyle}"
+                    AutomationProperties.LiveSetting="Polite">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid Width="10" Height="10" VerticalAlignment="Center">
+                            <Ellipse
+                                x:Name="CurrentGameActiveIndicator"
+                                Fill="{ThemeResource FlowSuccessBrush}"
+                                Visibility="Collapsed" />
+                            <Ellipse
+                                x:Name="CurrentGameInactiveIndicator"
+                                Fill="{ThemeResource TextFillColorTertiaryBrush}" />
+                        </Grid>
+                        <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
+                            <TextBlock
+                                x:Name="CurrentGameStatusTitle"
+                                Text="当前未检测到游戏"
+                                FontWeight="SemiBold"
+                                TextWrapping="Wrap" />
+                            <TextBlock
+                                x:Name="CurrentGameStatusDescription"
+                                Text="进入游戏后会自动识别，无需手动扫描。"
+                                Style="{StaticResource FlowMutedTextStyle}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
 
                 <Grid ColumnSpacing="10" RowSpacing="10">
                     <Grid.RowDefinitions>

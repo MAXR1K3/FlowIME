@@ -16,8 +16,9 @@ R3.2.1 implements the approved Home visual target while keeping the P8C.2 capabi
 
 ## Brand asset
 
-`Assets/FlowIME.Logo.Source.png` preserves the exact user-confirmed source capture.
-`Assets/FlowIME.Logo.png` is a transparent 44×44 runtime crop derived from that source for the WinUI title bar.
+`Assets/Brand/Source/FlowIME.Mark.Original.44.png` is the user-confirmed source of truth; its single-wave geometry must not be redrawn.
+`Assets/Brand/Source/` also preserves the original capture and ICO.
+`Assets/Brand/Generated/` contains pixel-for-pixel recolored PNG and multi-size ICO outputs produced by `Assets/Brand/build_logo_assets.py`.
 
 ## Non-goals
 
