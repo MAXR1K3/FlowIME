@@ -369,6 +369,31 @@ public sealed class JsonRuleRepositoryTests : IDisposable
             await File.ReadAllTextAsync(artifact, TestContext.Current.CancellationToken));
     }
 
+    [Theory]
+    [InlineData("null")]
+    [InlineData("{ \"match\": null }")]
+    public async Task Structurally_invalid_primary_recovers_last_good_copy(string invalidRule)
+    {
+        var rule = Rule(InputAction.English, priority: 500);
+        using (var writer = CreateRepository())
+        {
+            await writer.ReplaceRulesAsync([rule], TestContext.Current.CancellationToken);
+        }
+
+        var primaryPath = Path.Combine(_root, "rules.json");
+        await File.WriteAllTextAsync(
+            primaryPath,
+            $"{{\"schemaVersion\":2,\"rules\":[{invalidRule}]}}",
+            TestContext.Current.CancellationToken);
+
+        using var repository = CreateRepository();
+        var restored = await repository.GetRulesAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(rule, Assert.Single(restored));
+        Assert.Equal(RuleRepositoryHealthState.RecoveredFromBackup, repository.Diagnostics.State);
+        Assert.Contains("\"priority\": 500", await File.ReadAllTextAsync(primaryPath, TestContext.Current.CancellationToken));
+    }
+
     [Fact]
     public async Task Missing_primary_is_restored_from_last_good_copy()
     {

@@ -133,7 +133,8 @@ public sealed class InputStatusOverlayPlacementTests
         };
         var resolver = new InputStatusCaretBoundsResolver(
             _ => null,
-            _ => expected);
+            _ => expected,
+            _ => true);
 
         var actual = resolver.Resolve(new nint(123));
 
@@ -157,12 +158,96 @@ public sealed class InputStatusOverlayPlacementTests
             {
                 automationCalls++;
                 return null;
-            });
+            },
+            _ => true);
 
         var actual = resolver.Resolve(new nint(123));
 
         Assert.Equal(native, actual);
         Assert.Equal(0, automationCalls);
+    }
+
+    [Fact]
+    public void Selectable_non_editable_text_does_not_supply_caret_bounds()
+    {
+        var boundsCalls = 0;
+        var resolver = new InputStatusCaretBoundsResolver(
+            _ =>
+            {
+                boundsCalls++;
+                return new User32Native.Rect { Left = 200, Top = 100, Right = 201, Bottom = 120 };
+            },
+            _ =>
+            {
+                boundsCalls++;
+                return new User32Native.Rect { Left = 200, Top = 100, Right = 201, Bottom = 120 };
+            },
+            _ => false);
+
+        Assert.Null(resolver.Resolve(new nint(123)));
+        Assert.Equal(0, boundsCalls);
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, false, true)]
+    public void Ui_automation_only_accepts_enabled_writable_edit_controls(
+        bool isEdit,
+        bool isReadOnly,
+        bool expected)
+    {
+        Assert.Equal(expected,
+            UiAutomationCaretBoundsProvider.IsEditableTextControl(
+                isEdit ? System.Windows.Automation.ControlType.Edit : System.Windows.Automation.ControlType.Document,
+                isEnabled: true,
+                isReadOnly: isReadOnly));
+    }
+
+    [Theory]
+    [InlineData("Static", true, 0, false)]
+    [InlineData("RichEdit20W", true, 0x800, false)]
+    [InlineData("RichEdit20W", true, 0, true)]
+    [InlineData("Edit", false, 0, false)]
+    public void Native_fallback_accepts_only_writable_edit_controls(
+        string className, bool enabled, long style, bool expected)
+    {
+        Assert.Equal(expected,
+            UiAutomationCaretBoundsProvider.IsWritableNativeEditClass(className, enabled, style));
+    }
+
+    [Fact]
+    public void Native_caret_edit_remains_eligible_when_focus_is_its_parent()
+    {
+        var visited = new List<nint>();
+        var result = UiAutomationCaretBoundsProvider.HasWritableNativeEditCandidate(
+            focusedWindow: new nint(10),
+            caretWindow: new nint(20),
+            window =>
+            {
+                visited.Add(window);
+                return window == new nint(20);
+            });
+
+        Assert.True(result);
+        Assert.Equal([new nint(20)], visited);
+    }
+
+    [Fact]
+    public void Native_focus_edit_is_fallback_when_caret_is_not_editable()
+    {
+        var visited = new List<nint>();
+        var result = UiAutomationCaretBoundsProvider.HasWritableNativeEditCandidate(
+            focusedWindow: new nint(10),
+            caretWindow: new nint(20),
+            window =>
+            {
+                visited.Add(window);
+                return window == new nint(10);
+            });
+
+        Assert.True(result);
+        Assert.Equal([new nint(20), new nint(10)], visited);
     }
 
     [Theory]

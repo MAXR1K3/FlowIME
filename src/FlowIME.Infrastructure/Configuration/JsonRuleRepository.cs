@@ -376,6 +376,11 @@ public sealed class JsonRuleRepository : IRuleRepository, IDisposable
             throw new JsonException("The rules collection is missing.");
         }
 
+        if (document.Rules.Any(rule => rule is null || rule.Match is null))
+        {
+            throw new JsonException("A rule or its match conditions are missing.");
+        }
+
         var normalizedRules = Array.AsReadOnly(
             document.Rules
                 .Select(NormalizeLegacyProvider)

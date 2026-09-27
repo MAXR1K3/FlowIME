@@ -92,7 +92,8 @@ public sealed class InputStatusOverlay : IDisposable
         _settings = (initialSettings ?? InputStatusOverlaySettings.Default).Normalize();
         _caretBoundsResolver = new InputStatusCaretBoundsResolver(
             TryGetWin32CaretBounds,
-            UiAutomationCaretBoundsProvider.TryGetBounds);
+            UiAutomationCaretBoundsProvider.TryGetBounds,
+            UiAutomationCaretBoundsProvider.IsFocusedTextEntry);
         _windowProc = WindowProcedure;
         _thread = new Thread(ThreadMain)
         {

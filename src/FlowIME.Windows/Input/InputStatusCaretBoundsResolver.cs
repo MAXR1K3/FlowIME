@@ -7,19 +7,135 @@ namespace FlowIME.Windows.Input;
 
 internal sealed class InputStatusCaretBoundsResolver(
     Func<nint, User32Native.Rect?> win32Resolver,
-    Func<nint, User32Native.Rect?> uiAutomationResolver)
+    Func<nint, User32Native.Rect?> uiAutomationResolver,
+    Func<nint, bool> isFocusedTextEntry)
 {
     private readonly Func<nint, User32Native.Rect?> _win32Resolver =
         win32Resolver ?? throw new ArgumentNullException(nameof(win32Resolver));
     private readonly Func<nint, User32Native.Rect?> _uiAutomationResolver =
         uiAutomationResolver ?? throw new ArgumentNullException(nameof(uiAutomationResolver));
+    private readonly Func<nint, bool> _isFocusedTextEntry =
+        isFocusedTextEntry ?? throw new ArgumentNullException(nameof(isFocusedTextEntry));
 
     internal User32Native.Rect? Resolve(nint anchor) =>
-        _win32Resolver(anchor) ?? _uiAutomationResolver(anchor);
+        _isFocusedTextEntry(anchor)
+            ? _win32Resolver(anchor) ?? _uiAutomationResolver(anchor)
+            : null;
 }
 
 internal static class UiAutomationCaretBoundsProvider
 {
+    internal static bool IsEditableTextControl(
+        ControlType controlType,
+        bool isEnabled,
+        bool isReadOnly) =>
+        controlType == ControlType.Edit && isEnabled && !isReadOnly;
+
+    internal static bool IsFocusedTextEntry(nint anchor)
+    {
+        if (anchor == 0)
+        {
+            return false;
+        }
+
+        try
+        {
+            var focusedElement = AutomationElement.FocusedElement;
+            _ = User32Native.GetWindowThreadProcessId(anchor, out var anchorProcessId);
+            if (focusedElement is not null && anchorProcessId != 0 &&
+                focusedElement.Current.ProcessId == anchorProcessId &&
+                BelongsToAnchorWindow(focusedElement, anchor))
+            {
+                // A TextPattern selection also exists in selectable, read-only
+                // documents. Only an enabled, writable Edit control is input evidence.
+                if (!focusedElement.Current.IsEnabled)
+                {
+                    return false;
+                }
+
+                if (focusedElement.Current.ControlType != ControlType.Edit)
+                {
+                    return IsWritableNativeEdit(anchor);
+                }
+
+                if (focusedElement.TryGetCurrentPattern(ValuePattern.Pattern, out var value) &&
+                    value is ValuePattern valuePattern)
+                {
+                    return IsEditableTextControl(
+                        focusedElement.Current.ControlType,
+                        isEnabled: true,
+                        valuePattern.Current.IsReadOnly);
+                }
+
+                return IsWritableNativeEdit(anchor);
+            }
+        }
+        catch (ElementNotAvailableException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+        }
+        catch (COMException)
+        {
+        }
+
+        // Native Edit controls are still usable when their UIA provider is absent.
+        // Do not accept arbitrary HWND caret owners (e.g. selectable documents).
+        return IsWritableNativeEdit(anchor);
+    }
+
+    private static bool IsWritableNativeEdit(nint anchor)
+    {
+        var thread = User32Native.GetWindowThreadProcessId(anchor, out _);
+        var info = new User32Native.GuiThreadInfo
+        {
+            CbSize = checked((uint)Marshal.SizeOf<User32Native.GuiThreadInfo>())
+        };
+        var root = GetAncestor(anchor, 2);
+        if (thread == 0 || root == 0 ||
+            !User32Native.GetGUIThreadInfo(thread, ref info) ||
+            info.HwndFocus == 0 || GetAncestor(info.HwndFocus, 2) != root)
+        {
+            return false;
+        }
+
+        return HasWritableNativeEditCandidate(
+            info.HwndFocus,
+            info.HwndCaret,
+            window => IsWritableNativeEditWindow(window, root));
+    }
+
+    internal static bool HasWritableNativeEditCandidate(
+        nint focusedWindow,
+        nint caretWindow,
+        Func<nint, bool> isWritableEdit) =>
+        (caretWindow != 0 && isWritableEdit(caretWindow)) ||
+        (focusedWindow != 0 && focusedWindow != caretWindow && isWritableEdit(focusedWindow));
+
+    private static bool IsWritableNativeEditWindow(nint window, nint root)
+    {
+        if (GetAncestor(window, 2) != root)
+        {
+            return false;
+        }
+
+        var className = new char[256];
+        var count = User32Native.GetClassNameW(window, className, className.Length);
+        var name = count > 0 ? new string(className, 0, count) : string.Empty;
+        return IsWritableNativeEditClass(
+            name,
+            IsWindowEnabled(window),
+            GetWindowLongPtrW(window, -16).ToInt64());
+    }
+
+    internal static bool IsWritableNativeEditClass(string name, bool enabled, long style) =>
+        enabled &&
+        (style & 0x0800) == 0 && // ES_READONLY
+        (name.Equals("Edit", StringComparison.OrdinalIgnoreCase) ||
+         name.StartsWith("RichEdit", StringComparison.OrdinalIgnoreCase) ||
+         name.StartsWith("WindowsForms10.EDIT", StringComparison.OrdinalIgnoreCase));
+
     internal static User32Native.Rect? TryGetBounds(nint anchor)
     {
         if (anchor == 0)
@@ -46,8 +162,16 @@ internal static class UiAutomationCaretBoundsProvider
                 return null;
             }
 
-            if (!focusedElement.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) ||
+            if (focusedElement.Current.ControlType != ControlType.Edit ||
+                !focusedElement.Current.IsEnabled ||
+                !focusedElement.TryGetCurrentPattern(TextPattern.Pattern, out var pattern) ||
                 pattern is not TextPattern textPattern)
+            {
+                return null;
+            }
+
+            if (!focusedElement.TryGetCurrentPattern(ValuePattern.Pattern, out var value) ||
+                value is not ValuePattern valuePattern || valuePattern.Current.IsReadOnly)
             {
                 return null;
             }
@@ -164,4 +288,11 @@ internal static class UiAutomationCaretBoundsProvider
 
     [DllImport("user32.dll")]
     private static extern nint GetAncestor(nint window, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool IsWindowEnabled(nint window);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern nint GetWindowLongPtrW(nint window, int index);
 }
