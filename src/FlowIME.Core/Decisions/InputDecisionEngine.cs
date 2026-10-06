@@ -113,9 +113,7 @@ public sealed class InputDecisionEngine : IInputDecisionEngine
                 string.IsNullOrWhiteSpace(match.Reason)
                     ? "context-policy"
                     : match.Reason,
-                match.Action == InputAction.Keep
-                    ? null
-                    : InputMethodProviderIds.Normalize(match.ProviderId),
+                ResolveProviderId(match.Action, match.ProviderId),
                 match.Action,
                 ContextPolicyId: best.Policy.Id);
         }
@@ -132,7 +130,7 @@ public sealed class InputDecisionEngine : IInputDecisionEngine
                     InputDecisionSource.ApplicationRule,
                     InputDecisionReasonCode.ApplicationRule,
                     "application-rule",
-                    InputMethodProviderIds.Normalize(legacy.ProviderId),
+                    ResolveProviderId(legacy.Action, legacy.ProviderId),
                     legacy.Action,
                     ApplicationRule: legacy.Rule),
 
@@ -141,13 +139,18 @@ public sealed class InputDecisionEngine : IInputDecisionEngine
                     InputDecisionSource.GlobalDefault,
                     InputDecisionReasonCode.GlobalDefault,
                     "global-default",
-                    InputMethodProviderIds.Normalize(legacy.ProviderId),
+                    ResolveProviderId(legacy.Action, legacy.ProviderId),
                     legacy.Action,
                     GlobalDefault: legacy.GlobalDefault),
 
             _ => InputDecision.None
         };
     }
+
+    private static string? ResolveProviderId(InputAction action, string? providerId) =>
+        action is InputAction.Keep or InputAction.StandardUsKeyboard
+            ? null
+            : InputMethodProviderIds.Normalize(providerId);
 
     private static bool IsBetter(Candidate candidate, Candidate current)
     {

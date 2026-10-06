@@ -111,10 +111,11 @@ public sealed class AppServices : IAsyncDisposable
         var decisionJournal = new AutomationDecisionJournal();
         var microsoftPinyin = new MicrosoftPinyinProvider();
         var weChatInputMethod = new WeChatInputMethodProvider();
+        var standardUsKeyboard = new StandardUsKeyboardBackend();
         _inputMethodProviders = new InputMethodProviderRegistry(
             [microsoftPinyin, weChatInputMethod],
             MicrosoftPinyinProvider.ProviderId);
-        var backend = new ProviderInputMethodBackend(_inputMethodProviders);
+        var backend = new ProviderInputMethodBackend(_inputMethodProviders, standardUsKeyboard);
 
         _automation = new AutomationCoordinator(
             _foregroundSource,

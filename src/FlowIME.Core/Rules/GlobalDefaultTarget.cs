@@ -7,9 +7,11 @@ namespace FlowIME.Core.Rules;
 /// A null target means FlowIME leaves unmatched applications alone.
 /// </summary>
 public sealed record GlobalDefaultTarget(
-    string ProviderId,
+    string? ProviderId,
     InputAction Action)
 {
     public GlobalDefaultTarget Normalize() =>
-        this with { ProviderId = InputMethodProviderIds.Normalize(ProviderId) };
+        Action == InputAction.StandardUsKeyboard
+            ? this with { ProviderId = null }
+            : this with { ProviderId = InputMethodProviderIds.Normalize(ProviderId) };
 }

@@ -28,6 +28,17 @@ internal sealed class Win32GameplayKeyboardNativeApi : IGameplayKeyboardNativeAp
     public nint GetKeyboardLayout(uint threadId) =>
         User32Native.GetKeyboardLayout(threadId);
 
+    public uint GetWindowThreadId(
+        nint hwnd,
+        out uint processId,
+        out int errorCode)
+    {
+        Marshal.SetLastPInvokeError(0);
+        var threadId = User32Native.GetWindowThreadProcessId(hwnd, out processId);
+        errorCode = threadId == 0 ? Marshal.GetLastPInvokeError() : 0;
+        return threadId;
+    }
+
     public bool RequestInputLanguageChange(
         nint hwnd,
         nint keyboardLayout,

@@ -199,6 +199,48 @@ public sealed class JsonRuleRepositoryTests : IDisposable
     }
 
     [Fact]
+    public async Task Standard_us_keyboard_global_default_round_trips()
+    {
+        var repository = CreateRepository();
+        var target = new GlobalDefaultTarget(
+            InputMethodProviderIds.MicrosoftPinyin,
+            InputAction.StandardUsKeyboard);
+
+        await repository.ReplaceGlobalDefaultAsync(
+            target,
+            TestContext.Current.CancellationToken);
+
+        var reloaded = CreateRepository();
+        var loaded = await reloaded.GetGlobalDefaultAsync(
+            TestContext.Current.CancellationToken);
+        Assert.Equal(InputAction.StandardUsKeyboard, loaded!.Action);
+        Assert.Null(loaded.ProviderId);
+    }
+
+    [Fact]
+    public async Task Standard_us_keyboard_application_rule_does_not_persist_a_provider()
+    {
+        var repository = CreateRepository();
+        var rule = new ApplicationRule(
+            Guid.NewGuid(),
+            Enabled: true,
+            Priority: 100,
+            Match: new ApplicationMatch(ProcessPath: @"C:\Apps\Terminal.exe"),
+            Action: InputAction.StandardUsKeyboard,
+            ProviderId: InputMethodProviderIds.WeChat);
+
+        await repository.ReplaceRulesAsync(
+            [rule],
+            TestContext.Current.CancellationToken);
+
+        var reloaded = CreateRepository();
+        var loaded = Assert.Single(
+            await reloaded.GetRulesAsync(TestContext.Current.CancellationToken));
+        Assert.Equal(InputAction.StandardUsKeyboard, loaded.Action);
+        Assert.Null(loaded.ProviderId);
+    }
+
+    [Fact]
     public async Task Replacing_application_rules_preserves_global_default()
     {
         var repository = CreateRepository();

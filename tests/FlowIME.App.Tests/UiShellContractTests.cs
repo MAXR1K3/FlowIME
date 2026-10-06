@@ -193,8 +193,9 @@ public sealed class UiShellContractTests
 
         Assert.Contains("new MicrosoftPinyinProvider()", source, StringComparison.Ordinal);
         Assert.Contains("new WeChatInputMethodProvider()", source, StringComparison.Ordinal);
+        Assert.Contains("new StandardUsKeyboardBackend()", source, StringComparison.Ordinal);
         Assert.Contains("new InputMethodProviderRegistry", source, StringComparison.Ordinal);
-        Assert.Contains("new ProviderInputMethodBackend", source, StringComparison.Ordinal);
+        Assert.Contains("new ProviderInputMethodBackend(_inputMethodProviders, standardUsKeyboard)", source, StringComparison.Ordinal);
         Assert.DoesNotContain("new MicrosoftPinyinBackend()", source, StringComparison.Ordinal);
     }
 
@@ -226,6 +227,45 @@ public sealed class UiShellContractTests
         Assert.Contains("微信输入法", input, StringComparison.Ordinal);
         Assert.DoesNotContain("OpenStatus", input, StringComparison.Ordinal);
         Assert.DoesNotContain("ConversionMode", input, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Content_dialogs_inherit_the_actual_theme_of_their_host_page()
+    {
+        var root = FindRepositoryRoot();
+        var helper = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "FlowIME.App",
+            "Views",
+            "ContentDialogTheme.cs"));
+        var rules = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "FlowIME.App",
+            "Views",
+            "RulesPage.xaml.cs"));
+        var home = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "FlowIME.App",
+            "Views",
+            "HomePage.xaml.cs"));
+        var settings = File.ReadAllText(Path.Combine(
+            root,
+            "src",
+            "FlowIME.App",
+            "Views",
+            "SettingsPage.xaml.cs"));
+
+        Assert.Contains("dialog.XamlRoot = host.XamlRoot", helper, StringComparison.Ordinal);
+        Assert.Contains("dialog.RequestedTheme = host.ActualTheme", helper, StringComparison.Ordinal);
+        Assert.Contains("AttachToHost(this)", rules, StringComparison.Ordinal);
+        Assert.Contains("AttachToHost(this)", home, StringComparison.Ordinal);
+        Assert.Contains("AttachToHost(this)", settings, StringComparison.Ordinal);
+        Assert.DoesNotContain("XamlRoot = XamlRoot", rules, StringComparison.Ordinal);
+        Assert.DoesNotContain("XamlRoot = XamlRoot", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("XamlRoot = XamlRoot", settings, StringComparison.Ordinal);
     }
 
     [Fact]

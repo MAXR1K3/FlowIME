@@ -83,6 +83,21 @@ public sealed class InputDecisionEngineTests
         Assert.Equal(InputAction.Chinese, globalDecision.Action);
     }
 
+    [Fact]
+    public void Standard_us_keyboard_decision_has_no_input_method_provider()
+    {
+        var engine = new InputDecisionEngine(new RuleEngine());
+
+        var decision = engine.Resolve(
+            Context(),
+            new RuleConfigurationSnapshot(
+                [Rule(InputAction.StandardUsKeyboard)],
+                null));
+
+        Assert.Equal(InputAction.StandardUsKeyboard, decision.Action);
+        Assert.Null(decision.ProviderId);
+    }
+
 
 
     [Fact]

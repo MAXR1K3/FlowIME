@@ -75,6 +75,29 @@ public sealed class GlobalDefaultViewModelTests
             viewModel.SelectedAction = InputAction.Keep);
     }
 
+    [Fact]
+    public void Standard_us_keyboard_is_available_and_disables_provider_selection()
+    {
+        var viewModel = new GlobalDefaultViewModel(
+            current: null,
+            providers: Providers(),
+            defaultProviderId: InputMethodProviderIds.MicrosoftPinyin)
+        {
+            Enabled = true
+        };
+
+        viewModel.SelectedProviderId = InputMethodProviderOption.StandardUsKeyboardTargetId;
+
+        Assert.Contains(
+            viewModel.ProviderOptions,
+            option => option.ProviderId == InputMethodProviderOption.StandardUsKeyboardTargetId &&
+                      option.Label == "标准美式键盘（US）");
+        Assert.False(viewModel.IsProviderSelectionEnabled);
+        var target = viewModel.CreateTarget()!;
+        Assert.Equal(InputAction.StandardUsKeyboard, target.Action);
+        Assert.Null(target.ProviderId);
+    }
+
     private static IReadOnlyList<InputMethodProviderDescriptor> Providers() =>
     [
         new(

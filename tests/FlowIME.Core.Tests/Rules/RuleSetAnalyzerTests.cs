@@ -41,6 +41,22 @@ public sealed class RuleSetAnalyzerTests
     }
 
     [Fact]
+    public void Standard_us_keyboard_targets_ignore_irrelevant_provider_ids()
+    {
+        var match = new ApplicationMatch(ProcessName: "terminal");
+        ApplicationRule[] rules =
+        [
+            Rule(match, InputAction.StandardUsKeyboard, InputMethodProviderIds.MicrosoftPinyin),
+            Rule(match, InputAction.StandardUsKeyboard, InputMethodProviderIds.WeChat)
+        ];
+
+        var result = RuleSetAnalyzer.Analyze(rules);
+
+        Assert.Equal(0, result.ConflictingTargetGroupCount);
+        Assert.Equal(1, result.RedundantTargetGroupCount);
+    }
+
+    [Fact]
     public void Disabled_rule_does_not_participate_in_overlap_diagnostics()
     {
         var match = new ApplicationMatch(ProcessPath: @"C:\Apps\Code.exe");

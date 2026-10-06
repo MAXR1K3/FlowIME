@@ -72,10 +72,7 @@ public sealed partial class RulesPage : Page
             _viewModel.GlobalDefault,
             _services.InputMethodProviders,
             _services.DefaultInputMethodProviderId);
-        var dialog = new GlobalDefaultDialog(editor)
-        {
-            XamlRoot = XamlRoot
-        };
+        var dialog = new GlobalDefaultDialog(editor).AttachToHost(this);
 
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
         {
@@ -141,10 +138,7 @@ public sealed partial class RulesPage : Page
             picker.WindowTitleContains = string.Empty;
             picker.PreviewPriority = _viewModel.GetNextPriority();
         };
-        var dialog = new AddApplicationDialog(picker)
-        {
-            XamlRoot = XamlRoot
-        };
+        var dialog = new AddApplicationDialog(picker).AttachToHost(this);
 
         var result = await dialog.ShowAsync();
         if (result != ContentDialogResult.Primary || !picker.CanCreateRule)
@@ -158,13 +152,12 @@ public sealed partial class RulesPage : Page
         {
             var confirm = new ContentDialog
             {
-                XamlRoot = XamlRoot,
                 Title = "更新现有规则？",
                 Content = $"{existing.DisplayName ?? Path.GetFileNameWithoutExtension(path)} 已有规则。继续会更新原规则，而不会创建重复项。",
                 PrimaryButtonText = "更新",
                 CloseButtonText = "取消",
                 DefaultButton = ContentDialogButton.Primary
-            };
+            }.AttachToHost(this);
 
             if (await confirm.ShowAsync() != ContentDialogResult.Primary)
             {
@@ -243,10 +236,7 @@ public sealed partial class RulesPage : Page
             item,
             _services.InputMethodProviders,
             _viewModel.SourceRules);
-        var dialog = new EditRuleDialog(editor)
-        {
-            XamlRoot = XamlRoot
-        };
+        var dialog = new EditRuleDialog(editor).AttachToHost(this);
 
         if (await dialog.ShowAsync() != ContentDialogResult.Primary)
         {
@@ -278,13 +268,12 @@ public sealed partial class RulesPage : Page
 
         var confirm = new ContentDialog
         {
-            XamlRoot = XamlRoot,
             Title = "删除规则？",
             Content = $"删除 {item.DisplayName} 的自动切换规则。",
             PrimaryButtonText = "删除",
             CloseButtonText = "取消",
             DefaultButton = ContentDialogButton.Close
-        };
+        }.AttachToHost(this);
 
         if (await confirm.ShowAsync() != ContentDialogResult.Primary)
         {

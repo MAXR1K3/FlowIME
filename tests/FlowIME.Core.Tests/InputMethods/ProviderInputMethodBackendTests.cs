@@ -121,6 +121,30 @@ public sealed class ProviderInputMethodBackendTests
         Assert.Equal(0, weChat.ApplyCount);
     }
 
+    [Fact]
+    public async Task Standard_us_action_dispatches_to_keyboard_backend_without_using_a_provider()
+    {
+        var microsoft = new RecordingProvider(InputMethodProviderIds.MicrosoftPinyin, true);
+        var keyboard = new RecordingStandardUsKeyboardBackend();
+        var backend = new ProviderInputMethodBackend(
+            new InputMethodProviderRegistry(
+                [microsoft],
+                InputMethodProviderIds.MicrosoftPinyin),
+            keyboard);
+        var window = TestWindow();
+
+        var result = await backend.ApplyAsync(
+            window,
+            providerId: null,
+            action: InputAction.StandardUsKeyboard,
+            cancellationToken: TestContext.Current.CancellationToken);
+
+        Assert.Same(keyboard.Result, result);
+        Assert.Equal(1, keyboard.ApplyCount);
+        Assert.Same(window, keyboard.LastWindow);
+        Assert.Equal(0, microsoft.ApplyCount);
+    }
+
 
     [Fact]
     public async Task Multi_provider_detection_failure_fails_closed_instead_of_reading_microsoft_semantics()
@@ -248,6 +272,28 @@ public sealed class ProviderInputMethodBackendTests
             cancellationToken.ThrowIfCancellationRequested();
             ApplyCount++;
             LastAction = action;
+            return ValueTask.FromResult(Result);
+        }
+    }
+
+    private sealed class RecordingStandardUsKeyboardBackend : IStandardUsKeyboardBackend
+    {
+        private static readonly InputState State =
+            new("Standard US keyboard", InputMode.English, unchecked((nint)0x04090409u));
+
+        public InputOperationResult Result { get; } =
+            new(true, State, State, "Standard US keyboard", null, TimeSpan.Zero);
+
+        public int ApplyCount { get; private set; }
+        public WindowContext? LastWindow { get; private set; }
+
+        public ValueTask<InputOperationResult> ApplyAsync(
+            WindowContext window,
+            CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ApplyCount++;
+            LastWindow = window;
             return ValueTask.FromResult(Result);
         }
     }

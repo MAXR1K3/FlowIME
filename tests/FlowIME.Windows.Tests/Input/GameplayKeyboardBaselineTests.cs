@@ -96,6 +96,16 @@ public sealed class GameplayKeyboardBaselineTests
 
         public nint GetKeyboardLayout(uint threadId) => CurrentLayout;
 
+        public uint GetWindowThreadId(
+            nint hwnd,
+            out uint processId,
+            out int errorCode)
+        {
+            processId = 1;
+            errorCode = 0;
+            return 1;
+        }
+
         public bool RequestInputLanguageChange(
             nint hwnd,
             nint keyboardLayout,

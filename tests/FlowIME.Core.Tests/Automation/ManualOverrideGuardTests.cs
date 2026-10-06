@@ -38,6 +38,21 @@ public sealed class ManualOverrideGuardTests
     }
 
     [Fact]
+    public void Keyboard_layout_target_is_not_compared_as_a_chinese_or_english_mode()
+    {
+        var guard = new ManualOverrideGuard();
+        var context = Context((nint)0x10);
+        guard.Register(context, InputMode.Chinese, "test-user");
+
+        var evaluation = guard.Evaluate(
+            context,
+            Decision(InputAction.StandardUsKeyboard));
+
+        Assert.False(evaluation.Suppress);
+        Assert.Equal("non-mode-target", evaluation.Reason);
+    }
+
+    [Fact]
     public void Leaving_foreground_window_clears_override()
     {
         var guard = new ManualOverrideGuard();

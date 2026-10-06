@@ -39,11 +39,10 @@ public sealed record GameplayEligibilityAssessment(
 /// Pure gameplay classification over already-collected evidence.
 ///
 /// Contract:
-/// - geometric fullscreen is a prerequisite for automatic gameplay classification;
 /// - an explicit future "not a game" preference is a hard veto;
 /// - an explicit future "game" preference is authoritative;
-/// - Windows game metadata or an exclusive Direct3D fullscreen signal are each
-///   strong enough to classify gameplay conservatively;
+/// - Windows game metadata is strong enough to classify gameplay in windowed mode;
+/// - an exclusive Direct3D signal is strong enough only when the window is fullscreen;
 /// - two independent strong system signals raise confidence to Certain.
 ///
 /// No input-method action belongs here. P8B gameplay policies consume the resulting
@@ -61,13 +60,6 @@ public sealed class GameplayEligibilityEvaluator
             .Where(item => item is not null && !string.IsNullOrWhiteSpace(item.Source))
             .Distinct()
             .ToArray();
-
-        if (!isFullscreen)
-        {
-            return GameplayEligibilityAssessment.NotEligible(
-                "not-fullscreen",
-                sanitized);
-        }
 
         if (sanitized.Any(item => item.Kind == GameplayEvidenceKind.UserDeclaredNotGame))
         {
@@ -92,7 +84,7 @@ public sealed class GameplayEligibilityEvaluator
         var direct3DExclusive = sanitized.Any(
             item => item.Kind == GameplayEvidenceKind.Direct3DExclusive);
 
-        if (windowsMetadata && direct3DExclusive)
+        if (windowsMetadata && direct3DExclusive && isFullscreen)
         {
             return new GameplayEligibilityAssessment(
                 true,
@@ -110,7 +102,7 @@ public sealed class GameplayEligibilityEvaluator
                 sanitized);
         }
 
-        if (direct3DExclusive)
+        if (direct3DExclusive && isFullscreen)
         {
             return new GameplayEligibilityAssessment(
                 true,
@@ -120,7 +112,7 @@ public sealed class GameplayEligibilityEvaluator
         }
 
         return GameplayEligibilityAssessment.NotEligible(
-            "insufficient-game-evidence",
+            isFullscreen ? "insufficient-game-evidence" : "not-fullscreen",
             sanitized);
     }
 }

@@ -50,6 +50,33 @@ public sealed class EditRuleViewModelTests
     }
 
     [Fact]
+    public void Standard_us_keyboard_rule_is_created_without_a_provider()
+    {
+        var rule = new RuleListItemViewModel(
+            Guid.NewGuid(),
+            "Terminal",
+            @"C:\Apps\Terminal.exe",
+            InputMethodProviderIds.WeChat,
+            "微信输入法",
+            InputAction.English,
+            enabled: true);
+        var viewModel = new EditRuleViewModel(rule)
+        {
+            SelectedProviderId = InputMethodProviderOption.StandardUsKeyboardTargetId
+        };
+
+        var updated = viewModel.CreateUpdatedRule();
+
+        Assert.Equal(InputAction.StandardUsKeyboard, updated.Action);
+        Assert.Null(updated.ProviderId);
+        Assert.False(viewModel.IsProviderSelectionEnabled);
+        Assert.Contains(
+            viewModel.ProviderOptions,
+            option => option.ProviderId == InputMethodProviderOption.StandardUsKeyboardTargetId &&
+                      option.Label == "标准美式键盘（US）");
+    }
+
+    [Fact]
     public void Advanced_match_and_priority_are_editable_and_rebuilt()
     {
         var match = new ApplicationMatch(

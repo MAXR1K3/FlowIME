@@ -189,6 +189,7 @@ public sealed class HomeViewModel : ObservableObject
         {
             InputAction.Chinese => $"{targetProvider} · 中文",
             InputAction.English => $"{targetProvider} · 英文",
+            InputAction.StandardUsKeyboard => "标准美式键盘",
             InputAction.Keep when effectiveResolutionSource is
                 RuleResolutionSource.ContextPolicy or RuleResolutionSource.ApplicationRule =>
                 "保持当前输入状态",
@@ -201,22 +202,30 @@ public sealed class HomeViewModel : ObservableObject
                 $"当前场景 → {targetProvider} · 中文",
             RuleResolutionSource.ContextPolicy when matchedAction == InputAction.English =>
                 $"当前场景 → {targetProvider} · 英文",
+            RuleResolutionSource.ContextPolicy when matchedAction == InputAction.StandardUsKeyboard =>
+                "当前场景 → 标准美式键盘",
             RuleResolutionSource.ContextPolicy when matchedAction == InputAction.Keep =>
                 "当前场景 → 保持当前输入状态",
             RuleResolutionSource.GlobalDefault when matchedAction == InputAction.Chinese =>
                 $"全局默认 → {targetProvider} · 中文",
             RuleResolutionSource.GlobalDefault when matchedAction == InputAction.English =>
                 $"全局默认 → {targetProvider} · 英文",
+            RuleResolutionSource.GlobalDefault when matchedAction == InputAction.StandardUsKeyboard =>
+                "全局默认 → 标准美式键盘",
             RuleResolutionSource.ApplicationRule when matchedAction == InputAction.Chinese =>
                 $"{CurrentApplicationName} → {targetProvider} · 中文",
             RuleResolutionSource.ApplicationRule when matchedAction == InputAction.English =>
                 $"{CurrentApplicationName} → {targetProvider} · 英文",
+            RuleResolutionSource.ApplicationRule when matchedAction == InputAction.StandardUsKeyboard =>
+                $"{CurrentApplicationName} → 标准美式键盘",
             RuleResolutionSource.ApplicationRule when matchedAction == InputAction.Keep =>
                 $"{CurrentApplicationName} → 保持当前输入状态",
             _ when matchedAction == InputAction.Chinese =>
                 $"{CurrentApplicationName} → {targetProvider} · 中文",
             _ when matchedAction == InputAction.English =>
                 $"{CurrentApplicationName} → {targetProvider} · 英文",
+            _ when matchedAction == InputAction.StandardUsKeyboard =>
+                $"{CurrentApplicationName} → 标准美式键盘",
             _ when matchedAction == InputAction.Keep =>
                 $"{CurrentApplicationName} → 保持当前输入状态",
             _ => "当前未匹配规则"

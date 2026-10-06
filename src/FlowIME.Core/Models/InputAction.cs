@@ -4,5 +4,6 @@ public enum InputAction
 {
     Keep,
     Chinese,
-    English
+    English,
+    StandardUsKeyboard
 }

@@ -23,18 +23,27 @@ public sealed class EditRuleViewModel : InputActionSelectionViewModel
     {
         Rule = rule;
         _existingRules = existingRules ?? Array.Empty<ApplicationRule>();
-        _selectedProviderId = InputMethodProviderIds.Normalize(rule.ProviderId);
+        _selectedProviderId = rule.Action == InputAction.StandardUsKeyboard
+            ? InputMethodProviderOption.StandardUsKeyboardTargetId
+            : InputMethodProviderIds.Normalize(rule.ProviderId);
         _enabled = rule.Enabled;
         _processName = rule.Match.ProcessName ?? string.Empty;
         _windowClass = rule.Match.WindowClass ?? string.Empty;
         _windowTitleContains = rule.Match.WindowTitleContains ?? string.Empty;
         _priority = rule.Priority;
 
-        ProviderOptions = providers is { Count: > 0 }
+        var inputMethodOptions = providers is { Count: > 0 }
             ? providers.Select(provider =>
                     new InputMethodProviderOption(provider.DisplayName, provider.Id))
                 .ToArray()
             : [new InputMethodProviderOption("Microsoft Pinyin", InputMethodProviderIds.MicrosoftPinyin)];
+        ProviderOptions =
+        [
+            .. inputMethodOptions,
+            new InputMethodProviderOption(
+                "标准美式键盘（US）",
+                InputMethodProviderOption.StandardUsKeyboardTargetId)
+        ];
     }
 
     public RuleListItemViewModel Rule { get; }
@@ -48,7 +57,43 @@ public sealed class EditRuleViewModel : InputActionSelectionViewModel
     public string SelectedProviderId
     {
         get => _selectedProviderId;
-        set => SetProperty(ref _selectedProviderId, InputMethodProviderIds.Normalize(value));
+        set
+        {
+            var normalized = InputMethodProviderOption.IsStandardUsKeyboard(value)
+                ? InputMethodProviderOption.StandardUsKeyboardTargetId
+                : InputMethodProviderIds.Normalize(value);
+            if (!SetProperty(ref _selectedProviderId, normalized))
+            {
+                return;
+            }
+
+            if (InputMethodProviderOption.IsStandardUsKeyboard(normalized))
+            {
+                SelectedAction = InputAction.StandardUsKeyboard;
+            }
+            else if (SelectedAction == InputAction.StandardUsKeyboard)
+            {
+                SelectedAction = InputAction.English;
+            }
+        }
+    }
+
+    protected override void OnSelectedActionChanged()
+    {
+        if (SelectedAction == InputAction.StandardUsKeyboard)
+        {
+            SetProperty(
+                ref _selectedProviderId,
+                InputMethodProviderOption.StandardUsKeyboardTargetId,
+                nameof(SelectedProviderId));
+        }
+        else if (InputMethodProviderOption.IsStandardUsKeyboard(_selectedProviderId))
+        {
+            SetProperty(
+                ref _selectedProviderId,
+                ProviderOptions.First(option => !InputMethodProviderOption.IsStandardUsKeyboard(option.ProviderId)).ProviderId,
+                nameof(SelectedProviderId));
+        }
     }
 
     public bool Enabled
@@ -129,7 +174,9 @@ public sealed class EditRuleViewModel : InputActionSelectionViewModel
         CreateMatch(),
         SelectedAction,
         Rule.DisplayName,
-        InputMethodProviderIds.Normalize(SelectedProviderId));
+        SelectedAction == InputAction.StandardUsKeyboard
+            ? null
+            : InputMethodProviderIds.Normalize(SelectedProviderId));
 
     private ApplicationMatch CreateMatch() => Rule.Match with
     {

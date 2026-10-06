@@ -147,7 +147,7 @@
             <StackPanel Spacing="14">
                 <StackPanel Spacing="4">
                     <TextBlock Text="进入应用时" FontSize="16" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    <TextBlock Text="为左侧选中的应用设置输入法和输入状态。" Style="{StaticResource FlowMutedTextStyle}" />
+                    <TextBlock Text="为左侧选中的应用设置输入法或标准美式键盘。" Style="{StaticResource FlowMutedTextStyle}" />
                 </StackPanel>
 
                 <Grid x:Name="RuleOptionsGrid" RowSpacing="12">
@@ -156,11 +156,11 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
                     <StackPanel Spacing="5">
-                        <TextBlock Text="输入法" FontSize="12" Style="{StaticResource FlowMutedTextStyle}" />
+                        <TextBlock Text="输入目标" FontSize="12" Style="{StaticResource FlowMutedTextStyle}" />
                         <ComboBox
                             MinHeight="40"
                             HorizontalAlignment="Stretch"
-                            AutomationProperties.Name="输入法"
+                            AutomationProperties.Name="输入目标"
                             ItemsSource="{Binding ProviderOptions}"
                             DisplayMemberPath="Label"
                             SelectedValuePath="ProviderId"
@@ -175,7 +175,8 @@
                             AutomationProperties.Name="输入状态"
                             ItemsSource="{Binding ActionOptions}"
                             DisplayMemberPath="Label"
-                            SelectedItem="{Binding SelectedActionOption, Mode=TwoWay}" />
+                            SelectedItem="{Binding SelectedActionOption, Mode=TwoWay}"
+                            IsEnabled="{Binding IsInputStateSelectionEnabled}" />
                     </StackPanel>
                 </Grid>
 

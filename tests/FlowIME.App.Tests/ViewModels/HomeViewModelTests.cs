@@ -189,6 +189,32 @@ public sealed class HomeViewModelTests
         Assert.Equal("Explorer", viewModel.CurrentApplicationName);
     }
 
+    [Fact]
+    public void Standard_us_keyboard_summary_does_not_show_an_input_method_provider()
+    {
+        var viewModel = new HomeViewModel();
+        var window = new WindowContext(
+            (nint)0x1234,
+            100,
+            200,
+            "WindowsTerminal",
+            @"C:\Apps\WindowsTerminal.exe",
+            "Terminal",
+            "CASCADIA_HOSTING_WINDOW_CLASS",
+            null);
+
+        viewModel.UpdateCurrentState(
+            window,
+            new InputState("Microsoft Pinyin", InputMode.Chinese, 0),
+            InputAction.StandardUsKeyboard,
+            matchedRule: null,
+            matchedProviderDisplayName: "Microsoft Pinyin",
+            resolutionSource: RuleResolutionSource.GlobalDefault);
+
+        Assert.Equal("标准美式键盘", viewModel.RuleTargetLabel);
+        Assert.Equal("全局默认 → 标准美式键盘", viewModel.LastRuleSummary);
+    }
+
 
     [Fact]
     public void Context_policy_summary_is_distinguished_from_application_rule()

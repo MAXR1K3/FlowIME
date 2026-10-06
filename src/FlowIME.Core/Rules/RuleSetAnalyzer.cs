@@ -293,7 +293,7 @@ public static class RuleSetAnalyzer
     {
         public static TargetKey Create(ApplicationRule rule)
         {
-            var providerId = rule.Action == InputAction.Keep
+            var providerId = rule.Action is InputAction.Keep or InputAction.StandardUsKeyboard
                 ? string.Empty
                 : InputMethodProviderIds.Normalize(rule.ProviderId);
             return new TargetKey(providerId, rule.Action);

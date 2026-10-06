@@ -33,7 +33,7 @@ public sealed record RuleResolution(
             RuleResolutionSource.ApplicationRule,
             rule,
             null,
-            InputMethodProviderIds.Normalize(rule.ProviderId),
+            ResolveProviderId(rule.Action, rule.ProviderId),
             rule.Action);
     }
 
@@ -45,7 +45,12 @@ public sealed record RuleResolution(
             RuleResolutionSource.GlobalDefault,
             null,
             normalized,
-            normalized.ProviderId,
+            ResolveProviderId(normalized.Action, normalized.ProviderId),
             normalized.Action);
     }
+
+    private static string? ResolveProviderId(InputAction action, string? providerId) =>
+        action is InputAction.Keep or InputAction.StandardUsKeyboard
+            ? null
+            : InputMethodProviderIds.Normalize(providerId);
 }

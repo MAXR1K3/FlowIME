@@ -19,7 +19,7 @@ public sealed class GameplayEligibilityDetectorTests
     }
 
     [Fact]
-    public async Task Non_fullscreen_window_never_samples_game_evidence()
+    public async Task Non_fullscreen_window_samples_evidence_and_promotes_known_game()
     {
         var probe = new CountingEvidenceProbe(Evidence(GameplayEvidenceKind.WindowsGameMetadata));
         var detector = Detector(fullscreen: false, probe);
@@ -28,9 +28,53 @@ public sealed class GameplayEligibilityDetectorTests
             Request(),
             TestContext.Current.CancellationToken);
 
+        var signal = Assert.Single(signals);
+        Assert.Equal(InputContextSignalKind.Game, signal.Kind);
+        Assert.Equal(ContextSignalConfidence.High, signal.Confidence);
+        Assert.Equal(1, probe.CaptureCount);
+
+        var observation = Assert.Single(detector.GetRecentObservations());
+        Assert.False(observation.IsFullscreen);
+        Assert.True(observation.IsEligible);
+        Assert.Equal("windows-game-metadata", observation.Reason);
+    }
+
+    [Fact]
+    public async Task Non_fullscreen_direct3d_evidence_is_rejected_but_recorded()
+    {
+        var detector = Detector(
+            fullscreen: false,
+            new FixedEvidenceProbe(Evidence(GameplayEvidenceKind.Direct3DExclusive)));
+
+        var signals = await detector.DetectAsync(
+            Request(),
+            TestContext.Current.CancellationToken);
+
         Assert.Empty(signals);
-        Assert.Equal(0, probe.CaptureCount);
-        Assert.Empty(detector.GetRecentObservations());
+
+        var observation = Assert.Single(detector.GetRecentObservations());
+        Assert.False(observation.IsFullscreen);
+        Assert.False(observation.IsEligible);
+        Assert.Equal("not-fullscreen", observation.Reason);
+        Assert.Contains(GameplayEvidenceKind.Direct3DExclusive, observation.Evidence);
+    }
+
+    [Fact]
+    public async Task Non_fullscreen_window_without_evidence_stays_safe_and_is_recorded()
+    {
+        var detector = Detector(fullscreen: false);
+
+        var signals = await detector.DetectAsync(
+            Request(),
+            TestContext.Current.CancellationToken);
+
+        Assert.Empty(signals);
+
+        var observation = Assert.Single(detector.GetRecentObservations());
+        Assert.False(observation.IsFullscreen);
+        Assert.False(observation.IsEligible);
+        Assert.Equal("not-fullscreen", observation.Reason);
+        Assert.Empty(observation.Evidence);
     }
 
     [Theory]

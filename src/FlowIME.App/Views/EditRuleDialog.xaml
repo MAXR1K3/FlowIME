@@ -117,11 +117,11 @@
             <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
             <StackPanel Spacing="6">
-                <TextBlock Text="输入法" FontWeight="SemiBold" />
+                <TextBlock Text="输入目标" FontWeight="SemiBold" />
                 <ComboBox
                     MinHeight="40"
                     HorizontalAlignment="Stretch"
-                    AutomationProperties.Name="输入法"
+                    AutomationProperties.Name="输入目标"
                     ItemsSource="{Binding ProviderOptions}"
                     DisplayMemberPath="Label"
                     SelectedValuePath="ProviderId"
@@ -136,7 +136,8 @@
                     AutomationProperties.Name="输入状态"
                     ItemsSource="{Binding ActionOptions}"
                     DisplayMemberPath="Label"
-                    SelectedItem="{Binding SelectedActionOption, Mode=TwoWay}" />
+                    SelectedItem="{Binding SelectedActionOption, Mode=TwoWay}"
+                    IsEnabled="{Binding IsInputStateSelectionEnabled}" />
             </StackPanel>
 
             <TextBlock

@@ -16,11 +16,23 @@ public sealed class GameplayEligibilityEvaluatorTests
     }
 
     [Fact]
-    public void Strong_game_evidence_does_not_override_missing_fullscreen()
+    public void Windows_game_metadata_classifies_windowed_gameplay()
     {
         var result = _evaluator.Evaluate(
             false,
             [Evidence(GameplayEvidenceKind.WindowsGameMetadata)]);
+
+        Assert.True(result.IsEligible);
+        Assert.Equal(ContextSignalConfidence.High, result.Confidence);
+        Assert.Equal("windows-game-metadata", result.Reason);
+    }
+
+    [Fact]
+    public void Direct3d_exclusive_evidence_still_requires_fullscreen()
+    {
+        var result = _evaluator.Evaluate(
+            false,
+            [Evidence(GameplayEvidenceKind.Direct3DExclusive)]);
 
         Assert.False(result.IsEligible);
         Assert.Equal("not-fullscreen", result.Reason);
@@ -68,12 +80,39 @@ public sealed class GameplayEligibilityEvaluatorTests
     }
 
     [Fact]
+    public void Future_user_game_preference_is_authoritative_in_windowed_mode()
+    {
+        var result = _evaluator.Evaluate(
+            false,
+            [Evidence(GameplayEvidenceKind.UserDeclaredGame)]);
+
+        Assert.True(result.IsEligible);
+        Assert.Equal(ContextSignalConfidence.Certain, result.Confidence);
+        Assert.Equal("user-declared-game", result.Reason);
+    }
+
+    [Fact]
     public void Future_user_not_game_preference_is_a_hard_veto()
     {
         var result = _evaluator.Evaluate(
             true,
             [
                 Evidence(GameplayEvidenceKind.UserDeclaredGame),
+                Evidence(GameplayEvidenceKind.WindowsGameMetadata),
+                Evidence(GameplayEvidenceKind.UserDeclaredNotGame)
+            ]);
+
+        Assert.False(result.IsEligible);
+        Assert.Equal(ContextSignalConfidence.Certain, result.Confidence);
+        Assert.Equal("user-declared-not-game", result.Reason);
+    }
+
+    [Fact]
+    public void User_not_game_preference_remains_a_hard_veto_in_a_windowed_game()
+    {
+        var result = _evaluator.Evaluate(
+            false,
+            [
                 Evidence(GameplayEvidenceKind.WindowsGameMetadata),
                 Evidence(GameplayEvidenceKind.UserDeclaredNotGame)
             ]);

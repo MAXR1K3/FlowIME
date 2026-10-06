@@ -403,9 +403,11 @@ public sealed class JsonRuleRepository : IRuleRepository, IDisposable
         return rule with
         {
             Match = match,
-            ProviderId = string.IsNullOrWhiteSpace(rule.ProviderId)
-                ? InputMethodProviderIds.MicrosoftPinyin
-                : InputMethodProviderIds.Normalize(rule.ProviderId)
+            ProviderId = rule.Action == InputAction.StandardUsKeyboard
+                ? null
+                : string.IsNullOrWhiteSpace(rule.ProviderId)
+                    ? InputMethodProviderIds.MicrosoftPinyin
+                    : InputMethodProviderIds.Normalize(rule.ProviderId)
         };
     }
 
@@ -420,10 +422,13 @@ public sealed class JsonRuleRepository : IRuleRepository, IDisposable
             return null;
         }
 
-        if (target.Action is not (InputAction.Chinese or InputAction.English))
+        if (target.Action is not (
+                InputAction.Chinese or
+                InputAction.English or
+                InputAction.StandardUsKeyboard))
         {
             throw new ArgumentException(
-                "The global default must explicitly choose Chinese or English.",
+                "The global default must choose Chinese, English, or the standard US keyboard.",
                 nameof(target));
         }
 
@@ -438,10 +443,13 @@ public sealed class JsonRuleRepository : IRuleRepository, IDisposable
             return null;
         }
 
-        if (target.Action is not (InputAction.Chinese or InputAction.English))
+        if (target.Action is not (
+                InputAction.Chinese or
+                InputAction.English or
+                InputAction.StandardUsKeyboard))
         {
             throw new JsonException(
-                "The global default must explicitly choose Chinese or English.");
+                "The global default must choose Chinese, English, or the standard US keyboard.");
         }
 
         return target.Normalize();

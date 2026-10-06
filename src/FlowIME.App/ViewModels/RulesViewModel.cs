@@ -104,6 +104,11 @@ public sealed class RulesViewModel : ObservableObject
                 return "未设置 · 未匹配应用保持当前输入状态";
             }
 
+            if (_globalDefault.Action == InputAction.StandardUsKeyboard)
+            {
+                return "标准美式键盘";
+            }
+
             var providerId = InputMethodProviderIds.Normalize(_globalDefault.ProviderId);
             var mode = _globalDefault.Action == InputAction.Chinese ? "中文" : "英文";
             return $"{GetProviderDisplayName(providerId)} · {mode}";

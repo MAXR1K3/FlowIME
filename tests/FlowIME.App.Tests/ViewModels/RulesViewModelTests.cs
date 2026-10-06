@@ -62,6 +62,25 @@ public sealed class RulesViewModelTests
     }
 
     [Fact]
+    public async Task Standard_us_keyboard_targets_have_layout_only_labels()
+    {
+        var rule = Rule(
+            @"C:\Apps\Terminal.exe",
+            InputAction.StandardUsKeyboard,
+            priority: 200);
+        var target = new GlobalDefaultTarget(
+            InputMethodProviderIds.MicrosoftPinyin,
+            InputAction.StandardUsKeyboard);
+        var viewModel = new RulesViewModel(
+            new FakeRuleRepository([rule], target));
+
+        await viewModel.LoadAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal("标准美式键盘", viewModel.GlobalDefaultSummary);
+        Assert.Equal("标准美式键盘", Assert.Single(viewModel.Rules).TargetLabel);
+    }
+
+    [Fact]
     public async Task Update_global_default_persists_and_can_disable_it()
     {
         var repository = new FakeRuleRepository();

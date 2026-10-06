@@ -545,10 +545,10 @@ public sealed partial class SettingsPage : Page
                 profile.ApplicationIdentityKey,
                 selected.ApplicationIdentityKey));
 
-        var dialog = new GameTextEntryDialog(services, selected.ToGameplayTarget(), existing)
-        {
-            XamlRoot = XamlRoot
-        };
+        var dialog = new GameTextEntryDialog(
+            services,
+            selected.ToGameplayTarget(),
+            existing).AttachToHost(this);
 
         try
         {

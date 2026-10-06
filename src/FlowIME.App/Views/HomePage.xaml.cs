@@ -173,10 +173,7 @@ public sealed partial class HomePage : Page
                 picker.LoadExistingRule(existing);
             }
 
-            var dialog = new AddApplicationDialog(picker)
-            {
-                XamlRoot = XamlRoot
-            };
+            var dialog = new AddApplicationDialog(picker).AttachToHost(this);
             if (existing is not null)
             {
                 dialog.Title = "更新应用规则";

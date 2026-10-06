@@ -11,10 +11,14 @@ namespace FlowIME.Core.InputMethods;
 public sealed class ProviderInputMethodBackend : IInputMethodBackend
 {
     private readonly InputMethodProviderRegistry _registry;
+    private readonly IStandardUsKeyboardBackend? _standardUsKeyboard;
 
-    public ProviderInputMethodBackend(InputMethodProviderRegistry registry)
+    public ProviderInputMethodBackend(
+        InputMethodProviderRegistry registry,
+        IStandardUsKeyboardBackend? standardUsKeyboard = null)
     {
         _registry = registry ?? throw new ArgumentNullException(nameof(registry));
+        _standardUsKeyboard = standardUsKeyboard;
     }
 
     public InputMethodProviderDescriptor DefaultProvider =>
@@ -74,8 +78,13 @@ public sealed class ProviderInputMethodBackend : IInputMethodBackend
     public ValueTask<InputOperationResult> ApplyAsync(
         WindowContext window,
         InputAction action,
-        CancellationToken cancellationToken = default) =>
-        _registry.DefaultProvider.ApplyAsync(window, action, cancellationToken);
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        return action == InputAction.StandardUsKeyboard
+            ? ApplyStandardUsKeyboardAsync(window, cancellationToken)
+            : _registry.DefaultProvider.ApplyAsync(window, action, cancellationToken);
+    }
 
     public ValueTask<InputOperationResult> ApplyAsync(
         WindowContext window,
@@ -84,6 +93,11 @@ public sealed class ProviderInputMethodBackend : IInputMethodBackend
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(window);
+        if (action == InputAction.StandardUsKeyboard)
+        {
+            return ApplyStandardUsKeyboardAsync(window, cancellationToken);
+        }
+
         var normalized = InputMethodProviderIds.Normalize(providerId);
         if (_registry.TryGetProvider(normalized, out var provider) && provider is not null)
         {
@@ -98,6 +112,26 @@ public sealed class ProviderInputMethodBackend : IInputMethodBackend
                 After: unknown,
                 Backend: "Input method provider registry",
                 ErrorCode: "provider-not-found",
+                Duration: TimeSpan.Zero));
+    }
+
+    private ValueTask<InputOperationResult> ApplyStandardUsKeyboardAsync(
+        WindowContext window,
+        CancellationToken cancellationToken)
+    {
+        if (_standardUsKeyboard is not null)
+        {
+            return _standardUsKeyboard.ApplyAsync(window, cancellationToken);
+        }
+
+        var unknown = new InputState(null, InputMode.Unknown, 0);
+        return ValueTask.FromResult(
+            new InputOperationResult(
+                Success: false,
+                Before: unknown,
+                After: unknown,
+                Backend: "Standard US keyboard",
+                ErrorCode: "standard-us-keyboard-backend-unavailable",
                 Duration: TimeSpan.Zero));
     }
 }

@@ -10,7 +10,8 @@ public abstract class InputActionSelectionViewModel : ObservableObject
         new[]
         {
             new InputActionOption("中文", InputAction.Chinese),
-            new InputActionOption("英文", InputAction.English)
+            new InputActionOption("英文", InputAction.English),
+            new InputActionOption("标准美式键盘", InputAction.StandardUsKeyboard)
         });
 
     protected static IReadOnlyList<InputActionOption> ApplicationRuleActionOptions { get; } =
@@ -19,7 +20,8 @@ public abstract class InputActionSelectionViewModel : ObservableObject
         {
             new InputActionOption("保持（不切换）", InputAction.Keep),
             new InputActionOption("中文", InputAction.Chinese),
-            new InputActionOption("英文", InputAction.English)
+            new InputActionOption("英文", InputAction.English),
+            new InputActionOption("标准美式键盘", InputAction.StandardUsKeyboard)
         });
 
     private InputAction _selectedAction;
@@ -46,6 +48,12 @@ public abstract class InputActionSelectionViewModel : ObservableObject
 
     public IReadOnlyList<InputActionOption> ActionOptions { get; }
 
+    public bool IsProviderSelectionEnabled =>
+        SelectedAction is InputAction.Chinese or InputAction.English;
+
+    public bool IsInputStateSelectionEnabled =>
+        SelectedAction != InputAction.StandardUsKeyboard;
+
     public InputAction SelectedAction
     {
         get => _selectedAction;
@@ -55,6 +63,9 @@ public abstract class InputActionSelectionViewModel : ObservableObject
             if (SetProperty(ref _selectedAction, value))
             {
                 OnPropertyChanged(nameof(SelectedActionOption));
+                OnPropertyChanged(nameof(IsProviderSelectionEnabled));
+                OnPropertyChanged(nameof(IsInputStateSelectionEnabled));
+                OnSelectedActionChanged();
             }
         }
     }
@@ -78,6 +89,10 @@ public abstract class InputActionSelectionViewModel : ObservableObject
                 action,
                 "The input action is not available for this editor.");
         }
+    }
+
+    protected virtual void OnSelectedActionChanged()
+    {
     }
 }
 

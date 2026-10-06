@@ -32,18 +32,24 @@ public sealed class AddApplicationViewModel : InputActionSelectionViewModel
             .ToList();
         ApplicationItems = new ObservableCollection<RunningApplicationItemViewModel>(_allItems);
 
-        var providerOptions = providers is { Count: > 0 }
+        var inputMethodOptions = providers is { Count: > 0 }
             ? providers.Select(provider =>
                     new InputMethodProviderOption(provider.DisplayName, provider.Id))
                 .ToArray()
             : [new InputMethodProviderOption("Microsoft Pinyin", InputMethodProviderIds.MicrosoftPinyin)];
 
-        ProviderOptions = providerOptions;
+        ProviderOptions =
+        [
+            .. inputMethodOptions,
+            new InputMethodProviderOption(
+                "标准美式键盘（US）",
+                InputMethodProviderOption.StandardUsKeyboardTargetId)
+        ];
         var requestedDefault = InputMethodProviderIds.Normalize(defaultProviderId);
-        _selectedProviderId = providerOptions.Any(option =>
+        _selectedProviderId = inputMethodOptions.Any(option =>
                 option.ProviderId.Equals(requestedDefault, StringComparison.OrdinalIgnoreCase))
             ? requestedDefault
-            : providerOptions[0].ProviderId;
+            : inputMethodOptions[0].ProviderId;
     }
 
     public IReadOnlyList<RunningApplication> Applications { get; }
@@ -169,7 +175,43 @@ public sealed class AddApplicationViewModel : InputActionSelectionViewModel
     public string SelectedProviderId
     {
         get => _selectedProviderId;
-        set => SetProperty(ref _selectedProviderId, InputMethodProviderIds.Normalize(value));
+        set
+        {
+            var normalized = InputMethodProviderOption.IsStandardUsKeyboard(value)
+                ? InputMethodProviderOption.StandardUsKeyboardTargetId
+                : InputMethodProviderIds.Normalize(value);
+            if (!SetProperty(ref _selectedProviderId, normalized))
+            {
+                return;
+            }
+
+            if (InputMethodProviderOption.IsStandardUsKeyboard(normalized))
+            {
+                SelectedAction = InputAction.StandardUsKeyboard;
+            }
+            else if (SelectedAction == InputAction.StandardUsKeyboard)
+            {
+                SelectedAction = InputAction.English;
+            }
+        }
+    }
+
+    protected override void OnSelectedActionChanged()
+    {
+        if (SelectedAction == InputAction.StandardUsKeyboard)
+        {
+            SetProperty(
+                ref _selectedProviderId,
+                InputMethodProviderOption.StandardUsKeyboardTargetId,
+                nameof(SelectedProviderId));
+        }
+        else if (InputMethodProviderOption.IsStandardUsKeyboard(_selectedProviderId))
+        {
+            SetProperty(
+                ref _selectedProviderId,
+                ProviderOptions.First(option => !InputMethodProviderOption.IsStandardUsKeyboard(option.ProviderId)).ProviderId,
+                nameof(SelectedProviderId));
+        }
     }
 
     public bool CanCreateRule => SelectedApplication is not null;
@@ -225,7 +267,9 @@ public sealed class AddApplicationViewModel : InputActionSelectionViewModel
             string.IsNullOrWhiteSpace(CustomDisplayName)
                 ? app.DisplayName
                 : CustomDisplayName.Trim(),
-            InputMethodProviderIds.Normalize(SelectedProviderId));
+            SelectedAction == InputAction.StandardUsKeyboard
+                ? null
+                : InputMethodProviderIds.Normalize(SelectedProviderId));
     }
 
     private ApplicationMatch CreateMatch(RunningApplication app) => new(
@@ -250,7 +294,9 @@ public sealed class AddApplicationViewModel : InputActionSelectionViewModel
             CreateMatch(SelectedApplication),
             SelectedAction,
             CustomDisplayName,
-            SelectedProviderId);
+            SelectedAction == InputAction.StandardUsKeyboard
+                ? null
+                : SelectedProviderId);
         return RuleSetAnalyzer.AnalyzeCandidate(candidate, _existingRules);
     }
 
@@ -309,4 +355,13 @@ public sealed class AddApplicationViewModel : InputActionSelectionViewModel
     }
 }
 
-public sealed record InputMethodProviderOption(string Label, string ProviderId);
+public sealed record InputMethodProviderOption(string Label, string ProviderId)
+{
+    public const string StandardUsKeyboardTargetId = "keyboard-layout:00000409";
+
+    public static bool IsStandardUsKeyboard(string? targetId) =>
+        string.Equals(
+            targetId,
+            StandardUsKeyboardTargetId,
+            StringComparison.OrdinalIgnoreCase);
+}

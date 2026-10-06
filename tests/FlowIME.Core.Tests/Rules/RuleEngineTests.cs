@@ -270,6 +270,33 @@ public sealed class RuleEngineTests
     }
 
     [Fact]
+    public void Standard_us_keyboard_resolution_does_not_expose_a_provider()
+    {
+        var rule = new ApplicationRule(
+            Guid.NewGuid(),
+            true,
+            100,
+            new ApplicationMatch(ProcessName: "Code"),
+            InputAction.StandardUsKeyboard,
+            ProviderId: InputMethodProviderIds.WeChat);
+        var fallback = new GlobalDefaultTarget(
+            InputMethodProviderIds.MicrosoftPinyin,
+            InputAction.StandardUsKeyboard);
+
+        var applicationResult = _engine.Resolve(
+            Window(processName: "Code"),
+            [rule],
+            fallback);
+        var globalResult = _engine.Resolve(
+            Window(processName: "notepad"),
+            [rule],
+            fallback);
+
+        Assert.Null(applicationResult.ProviderId);
+        Assert.Null(globalResult.ProviderId);
+    }
+
+    [Fact]
     public void Resolve_disabled_rule_allows_global_default()
     {
         var rule = Rule(

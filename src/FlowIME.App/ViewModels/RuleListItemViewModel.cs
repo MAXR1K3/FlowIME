@@ -88,11 +88,15 @@ public sealed class RuleListItemViewModel : ObservableObject
     {
         InputAction.Chinese => "中文",
         InputAction.English => "英文",
+        InputAction.StandardUsKeyboard => "标准美式键盘",
         InputAction.Keep => "保持",
         _ => Action.ToString()
     };
 
-    public string TargetLabel => Action == InputAction.Keep
-        ? "保持当前输入状态"
-        : $"{ProviderLabel} · {ActionLabel}";
+    public string TargetLabel => Action switch
+    {
+        InputAction.Keep => "保持当前输入状态",
+        InputAction.StandardUsKeyboard => ActionLabel,
+        _ => $"{ProviderLabel} · {ActionLabel}"
+    };
 }

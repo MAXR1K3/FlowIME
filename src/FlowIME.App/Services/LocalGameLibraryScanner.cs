@@ -15,6 +15,10 @@ internal sealed record GameLibraryScanEntry(
 
 internal sealed partial class LocalGameLibraryScanner
 {
+    private const int MaxExecutableScanDepth = 8;
+    private const int MaxExecutableDirectoriesToScan = 256;
+    private const int MaxExecutableCandidates = 64;
+
     private static readonly string[] ExcludedExecutableFragments =
     [
         "unins", "uninstall", "crash", "report", "redist", "setup", "installer",
@@ -66,6 +70,7 @@ internal sealed partial class LocalGameLibraryScanner
     internal async ValueTask<IReadOnlyList<GameLibraryScanEntry>> ScanAsync(
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var entries = new List<GameLibraryScanEntry>();
         foreach (var steamRoot in ExpandSteamLibraryRoots(_steamRoots))
         {
@@ -118,7 +123,7 @@ internal sealed partial class LocalGameLibraryScanner
                     continue;
                 }
 
-                var candidates = FindExecutableCandidates(installDirectory);
+                var candidates = FindExecutableCandidates(installDirectory, cancellationToken);
                 entries.Add(new GameLibraryScanEntry(
                     "Steam",
                     appId,
@@ -168,7 +173,7 @@ internal sealed partial class LocalGameLibraryScanner
                     continue;
                 }
 
-                var candidates = FindExecutableCandidates(installDirectory);
+                var candidates = FindExecutableCandidates(installDirectory, cancellationToken);
                 var executable = ResolveLaunchExecutable(
                     installDirectory,
                     ReadJsonString(root, "LaunchExecutable"),
@@ -219,7 +224,9 @@ internal sealed partial class LocalGameLibraryScanner
         return result.ToArray();
     }
 
-    private static IReadOnlyList<string> FindExecutableCandidates(string installDirectory)
+    private static IReadOnlyList<string> FindExecutableCandidates(
+        string installDirectory,
+        CancellationToken cancellationToken)
     {
         var result = new List<string>();
         var root = Path.GetFullPath(installDirectory)
@@ -227,30 +234,46 @@ internal sealed partial class LocalGameLibraryScanner
         var pending = new Queue<(string Directory, int Depth)>();
         pending.Enqueue((installDirectory, 0));
 
-        while (pending.Count > 0 && result.Count < 64)
+        var directoriesScanned = 0;
+        while (pending.Count > 0 &&
+               result.Count < MaxExecutableCandidates &&
+               directoriesScanned < MaxExecutableDirectoriesToScan)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var (directory, depth) = pending.Dequeue();
+            directoriesScanned++;
             try
             {
                 foreach (var executable in Directory.EnumerateFiles(directory, "*.exe"))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (result.Count >= MaxExecutableCandidates)
+                    {
+                        break;
+                    }
+
                     var fullPath = Path.GetFullPath(executable);
                     var fileName = Path.GetFileNameWithoutExtension(fullPath);
                     if (fullPath.StartsWith(root, StringComparison.OrdinalIgnoreCase) &&
-                        !ExcludedExecutableFragments.Any(fragment =>
-                            fileName.Contains(fragment, StringComparison.OrdinalIgnoreCase)))
+                        !IsExcludedExecutableName(fileName))
                     {
                         result.Add(fullPath);
                     }
                 }
 
-                if (depth >= 3)
+                if (depth >= MaxExecutableScanDepth)
                 {
                     continue;
                 }
 
                 foreach (var child in Directory.EnumerateDirectories(directory))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (directoriesScanned + pending.Count >= MaxExecutableDirectoriesToScan)
+                    {
+                        break;
+                    }
+
                     if ((File.GetAttributes(child) & FileAttributes.ReparsePoint) == 0)
                     {
                         pending.Enqueue((child, depth + 1));
@@ -266,6 +289,44 @@ internal sealed partial class LocalGameLibraryScanner
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToArray();
+    }
+
+    private static bool IsExcludedExecutableName(string fileName)
+    {
+        if (fileName.StartsWith("unins", StringComparison.OrdinalIgnoreCase) ||
+            fileName.StartsWith("easyanticheat", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        foreach (var fragment in ExcludedExecutableFragments)
+        {
+            var start = 0;
+            while (start < fileName.Length)
+            {
+                var index = fileName.IndexOf(fragment, start, StringComparison.OrdinalIgnoreCase);
+                if (index < 0)
+                {
+                    break;
+                }
+
+                var end = index + fragment.Length;
+                var beforeIsBoundary = index == 0 ||
+                    !char.IsLetterOrDigit(fileName[index - 1]) ||
+                    (char.IsLower(fileName[index - 1]) && char.IsUpper(fileName[index]));
+                var afterIsBoundary = end == fileName.Length ||
+                    !char.IsLetterOrDigit(fileName[end]) ||
+                    (char.IsLower(fileName[end - 1]) && char.IsUpper(fileName[end]));
+                if (beforeIsBoundary && afterIsBoundary)
+                {
+                    return true;
+                }
+
+                start = index + 1;
+            }
+        }
+
+        return false;
     }
 
     private static string? ResolveLaunchExecutable(

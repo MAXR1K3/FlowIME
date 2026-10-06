@@ -20,7 +20,7 @@ public sealed class AddApplicationViewModelTests
     }
 
     [Fact]
-    public void Provider_options_expose_registered_microsoft_and_wechat_providers()
+    public void Input_target_options_expose_registered_providers_and_standard_us_keyboard()
     {
         var viewModel = new AddApplicationViewModel(
             [App("Visual Studio Code", "Code", @"C:\Apps\Code.exe")],
@@ -29,10 +29,14 @@ public sealed class AddApplicationViewModelTests
                 Provider(InputMethodProviderIds.WeChat, "微信输入法")
             ]);
 
-        Assert.Equal(2, viewModel.ProviderOptions.Count);
+        Assert.Equal(3, viewModel.ProviderOptions.Count);
         Assert.Contains(
             viewModel.ProviderOptions,
             option => option.ProviderId == InputMethodProviderIds.WeChat && option.Label == "微信输入法");
+        Assert.Contains(
+            viewModel.ProviderOptions,
+            option => option.ProviderId == InputMethodProviderOption.StandardUsKeyboardTargetId &&
+                      option.Label == "标准美式键盘（US）");
     }
 
     [Fact]

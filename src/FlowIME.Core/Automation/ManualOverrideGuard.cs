@@ -173,7 +173,12 @@ public sealed class ManualOverrideGuard
                 _ => InputMode.Unknown
             };
 
-            if (targetMode == InputMode.Unknown || targetMode == current.Mode)
+            if (targetMode == InputMode.Unknown)
+            {
+                return new ManualOverrideEvaluation(false, current, "non-mode-target");
+            }
+
+            if (targetMode == current.Mode)
             {
                 return new ManualOverrideEvaluation(false, current, "target-matches-override");
             }

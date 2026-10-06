@@ -4,10 +4,11 @@ using FlowIME.Core.Context;
 namespace FlowIME.Windows.Context;
 
 /// <summary>
-/// Conservatively promotes a geometrically fullscreen foreground window to the Game
-/// context only when at least one strong, independent gameplay fact is present.
-/// Fullscreen alone is intentionally insufficient: browser F11, video playback,
-/// presentations and remote-desktop sessions must remain ordinary Fullscreen context.
+/// Conservatively promotes a foreground window to the Game context only when at
+/// least one strong, independent gameplay fact is present. Windows game metadata
+/// also supports windowed gameplay; the exclusive Direct3D fact remains fullscreen-
+/// bound. Fullscreen alone is intentionally insufficient: browser F11, video
+/// playback, presentations and remote-desktop sessions remain ordinary Fullscreen.
 /// </summary>
 public sealed record GameplayEligibilityObservation(
     DateTimeOffset Timestamp,
@@ -97,12 +98,6 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
 
         var isFullscreen = presentation.IsFullscreen(
             FullscreenWindowDetector.DefaultEdgeTolerancePixels);
-        if (!isFullscreen)
-        {
-            return ValueTask.FromResult<IReadOnlyList<InputContextSignal>>(
-                Array.Empty<InputContextSignal>());
-        }
-
         var evidence = new List<GameplayEvidence>();
         foreach (var probe in _evidenceProbes)
         {
@@ -125,7 +120,7 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
         }
 
         var assessment = _evaluator.Evaluate(isFullscreen, evidence);
-        RecordObservation(request, assessment, isFullscreen: true);
+        RecordObservation(request, assessment, isFullscreen);
         Trace.WriteLine(
             $"[FlowIME.Gameplay] utc={DateTimeOffset.UtcNow:O} " +
             $"process={SanitizeProcessName(request.Window.ProcessName)} " +
