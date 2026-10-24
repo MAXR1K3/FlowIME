@@ -112,7 +112,7 @@ public sealed class GameplayEligibilityEvaluator
         }
 
         return GameplayEligibilityAssessment.NotEligible(
-            isFullscreen ? "insufficient-game-evidence" : "not-fullscreen",
+            "insufficient-game-evidence",
             sanitized);
     }
 }

@@ -66,6 +66,31 @@ public sealed class GameTextEntryTargetItemViewModelTests
         Assert.False(item.HasProfile);
     }
 
+    [Fact]
+    public void Recent_and_discovered_alias_merge_into_original_profile_without_rekeying_it()
+    {
+        var profile = Profile("path:main-game", "Main Game", "chat:main") with
+        { ExecutablePath = @"C:\Games\main.exe", AdditionalExecutablePaths = [@"C:\Games\dx12.exe"] };
+        var recent = new RecentGameplayTarget("path:dx12", "dx12", DateTimeOffset.UtcNow, @"C:\Games\dx12.exe");
+        var game = new GameLibraryScanEntry("Steam", "test", "Game", @"C:\Games", @"C:\Games\dx12.exe", [@"C:\Games\dx12.exe"], null);
+        var item = Assert.Single(GameTextEntryTargetItemViewModel.Build([profile], recent, [game]));
+        Assert.Equal(profile.ApplicationIdentityKey, item.ApplicationIdentityKey);
+        Assert.Equal(profile.ExecutablePath, item.ExecutablePath);
+        Assert.Equal(profile.Id, item.ExistingProfile?.Id);
+        Assert.True(item.IsRecent);
+    }
+
+    [Theory]
+    [InlineData(GameplayClassification.Game, false, "指定游戏 · 聊天已停用")]
+    [InlineData(GameplayClassification.NotGame, true, "已排除游戏识别")]
+    [InlineData(GameplayClassification.Automatic, true, "自动识别 · 聊天已配置")]
+    public void Status_distinguishes_classification_from_chat_enabled(GameplayClassification classification, bool enabled, string expected)
+    {
+        var profile = Profile("path:test", "Game", "chat:test") with { Classification = classification, Enabled = enabled };
+        var item = Assert.Single(GameTextEntryTargetItemViewModel.Build([profile], null));
+        Assert.Equal(expected, item.StatusLabel);
+    }
+
     private static GameTextEntryProfile Profile(string key, string displayName, string id) =>
         new()
         {

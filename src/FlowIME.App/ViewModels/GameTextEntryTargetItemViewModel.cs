@@ -1,5 +1,6 @@
 using FlowIME.App.Services;
 using FlowIME.Core.Context;
+using FlowIME.Core.Models;
 using Microsoft.UI.Xaml.Media;
 
 namespace FlowIME.App.ViewModels;
@@ -23,8 +24,15 @@ internal sealed record GameTextEntryTargetItemViewModel(
     public bool CanConfigureDirectly =>
         HasProfile || IsRecent || !string.IsNullOrWhiteSpace(ExecutablePath);
 
-    public string StatusLabel => HasProfile
-        ? ExistingProfile!.Enabled ? "已配置" : "已停用"
+    public string StatusLabel => ExistingProfile is { } profile
+        ? !GameProfileTargetValidator.HasReliableTarget(profile)
+            ? "需要关联实际游戏 EXE"
+            : profile.Classification switch
+        {
+            GameplayClassification.NotGame => "已排除游戏识别",
+            GameplayClassification.Automatic => profile.Enabled ? "自动识别 · 聊天已配置" : "自动识别 · 聊天已停用",
+            _ => profile.Enabled ? "指定游戏 · 聊天已配置" : "指定游戏 · 聊天已停用"
+        }
         : CanConfigureDirectly ? "未配置" : "需要关联游戏程序";
 
     public string ShortcutSummary => ExistingProfile is null
@@ -55,19 +63,22 @@ internal sealed record GameTextEntryTargetItemViewModel(
             .GroupBy(profile => profile.ApplicationIdentityKey, StringComparer.Ordinal)
             .Select(group => group.First())
             .ToArray();
+        var registry = new GameTextEntryProfileRegistry();
+        registry.ReplaceProfiles(profileArray);
+        GameTextEntryProfile? FindProfile(string key, string? path) =>
+            profileArray.FirstOrDefault(profile => StringComparer.Ordinal.Equals(profile.ApplicationIdentityKey, key)) ??
+            registry.ResolveDeclaredProfile(FlowIME.Core.Context.ApplicationIdentity.FromWindow(
+                new WindowContext(0, 0, 0, string.Empty, path, null, null, null)));
+        var recentProfile = recent is null ? null : FindProfile(recent.ApplicationIdentityKey, recent.ExecutablePath);
         var items = profileArray
             .Select(profile => new GameTextEntryTargetItemViewModel(
                 profile.ApplicationIdentityKey,
                 profile.ApplicationDisplayName,
-                recent is not null && StringComparer.Ordinal.Equals(
-                    recent.ApplicationIdentityKey,
-                    profile.ApplicationIdentityKey),
+                recentProfile?.Id == profile.Id,
                 profile,
                 "配置",
-                profile.ExecutablePath ?? (recent is not null && StringComparer.Ordinal.Equals(
-                    recent.ApplicationIdentityKey,
-                    profile.ApplicationIdentityKey)
-                        ? recent.ExecutablePath
+                profile.ExecutablePath ?? (recentProfile?.Id == profile.Id
+                        ? recent?.ExecutablePath
                         : null)))
             .ToList();
 
@@ -89,17 +100,18 @@ internal sealed record GameTextEntryTargetItemViewModel(
                 }
             }
 
-            var existing = profileArray.FirstOrDefault(profile =>
-                StringComparer.Ordinal.Equals(profile.ApplicationIdentityKey, key));
+            var existing = FindProfile(key, game.ExecutablePath);
+            key = existing?.ApplicationIdentityKey ?? key;
             var duplicateIndex = items.FindIndex(item =>
                 StringComparer.Ordinal.Equals(item.ApplicationIdentityKey, key));
             var item = new GameTextEntryTargetItemViewModel(
                 key,
                 existing?.ApplicationDisplayName ?? game.DisplayName,
-                recent is not null && StringComparer.Ordinal.Equals(recent.ApplicationIdentityKey, key),
+                recent is not null && (StringComparer.Ordinal.Equals(recent.ApplicationIdentityKey, key) ||
+                    existing is not null && recentProfile?.Id == existing.Id),
                 existing,
                 game.SourceName,
-                game.ExecutablePath,
+                existing?.ExecutablePath ?? game.ExecutablePath,
                 game.ArtworkPath,
                 game.ExecutableCandidates);
             if (duplicateIndex >= 0)
@@ -112,7 +124,7 @@ internal sealed record GameTextEntryTargetItemViewModel(
             }
         }
 
-        if (recent is not null &&
+        if (recent is not null && recentProfile is null &&
             !items.Any(item => StringComparer.Ordinal.Equals(
                 item.ApplicationIdentityKey,
                 recent.ApplicationIdentityKey)))

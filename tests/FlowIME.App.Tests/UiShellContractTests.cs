@@ -153,8 +153,10 @@ public sealed class UiShellContractTests
         var root = FindRepositoryRoot();
         var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "AppServices.cs"));
 
-        Assert.Contains("new FullscreenWindowDetector()", source, StringComparison.Ordinal);
-        Assert.Contains("new GameplayEligibilityDetector()", source, StringComparison.Ordinal);
+        var pipeline = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "GameplayContextPipeline.cs"));
+        Assert.Contains("new GameplayContextPipeline(", source, StringComparison.Ordinal);
+        Assert.Contains("new FullscreenWindowDetector()", pipeline, StringComparison.Ordinal);
+        Assert.Contains("new GameplayEligibilityDetector(profiles)", pipeline, StringComparison.Ordinal);
         Assert.Contains("currentContextSignalDetails=", source, StringComparison.Ordinal);
         Assert.DoesNotContain("GameplayInputPolicy", source, StringComparison.Ordinal);
     }
@@ -165,7 +167,8 @@ public sealed class UiShellContractTests
         var root = FindRepositoryRoot();
         var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "AppServices.cs"));
 
-        Assert.Contains("new RecentInputContextCache", source, StringComparison.Ordinal);
+        var pipeline = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "GameplayContextPipeline.cs"));
+        Assert.Contains("new RecentInputContextCache", pipeline, StringComparison.Ordinal);
         Assert.Contains("contextEngine: contextEngine", source, StringComparison.Ordinal);
     }
 
@@ -634,7 +637,8 @@ public sealed class UiShellContractTests
         var services = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "AppServices.cs"));
         var engine = File.ReadAllText(Path.Combine(root, "src", "FlowIME.Core", "Context", "InputContextEngine.cs"));
 
-        Assert.Contains("new GameTextEntryRuntimeDetector", services, StringComparison.Ordinal);
+        var pipeline = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "GameplayContextPipeline.cs"));
+        Assert.Contains("new GameTextEntryRuntimeDetector", pipeline, StringComparison.Ordinal);
         Assert.Contains("new GameTextEntryPolicy", services, StringComparison.Ordinal);
         Assert.Contains("InputContextTrigger.GameTextEntryChanged", services, StringComparison.Ordinal);
         Assert.Contains("gameTextEntryActive=", services, StringComparison.Ordinal);
@@ -651,7 +655,8 @@ public sealed class UiShellContractTests
         var settings = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "SettingsPage.xaml"));
         var monitor = File.ReadAllText(Path.Combine(root, "src", "FlowIME.Windows", "Input", "GameTextEntryHotkeyMonitor.cs"));
 
-        Assert.Contains("new StandardGameTextEntryDetector", services, StringComparison.Ordinal);
+        var pipeline = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "GameplayContextPipeline.cs"));
+        Assert.Contains("new StandardGameTextEntryDetector", pipeline, StringComparison.Ordinal);
         Assert.Contains("new GameTextEntryHotkeyMonitor", services, StringComparison.Ordinal);
         Assert.Contains("JsonGameTextEntryProfileRepository", services, StringComparison.Ordinal);
         Assert.Contains("游戏文字输入", settings, StringComparison.Ordinal);

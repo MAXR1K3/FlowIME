@@ -433,16 +433,16 @@ public sealed partial class SettingsPage : Page
             var application = ExecutableCandidateFactory.Create(file.Path);
             var identity = FlowIME.Core.Context.ApplicationIdentity.FromRunningApplication(application);
             var profiles = await ((App)Application.Current).Services.GetGameTextEntryProfilesAsync();
-            var existing = profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(
-                profile.ApplicationIdentityKey,
-                identity.Key));
+            var registry = new GameTextEntryProfileRegistry();
+            registry.ReplaceProfiles(profiles);
+            var existing = registry.ResolveDeclaredProfile(identity);
             var selected = new GameTextEntryTargetItemViewModel(
-                identity.Key,
+                existing?.ApplicationIdentityKey ?? identity.Key,
                 application.DisplayName,
                 IsRecent: false,
                 existing,
                 SourceName: "手动",
-                ExecutablePath: file.Path);
+                ExecutablePath: existing?.ExecutablePath ?? file.Path);
 
             await ConfigureGameTextEntryTargetAsync(selected);
         }
@@ -522,16 +522,16 @@ public sealed partial class SettingsPage : Page
         var application = ExecutableCandidateFactory.Create(file.Path);
         var identity = FlowIME.Core.Context.ApplicationIdentity.FromRunningApplication(application);
         var profiles = await app.Services.GetGameTextEntryProfilesAsync();
-        var existing = profiles.FirstOrDefault(profile => StringComparer.Ordinal.Equals(
-            profile.ApplicationIdentityKey,
-            identity.Key));
+        var registry = new GameTextEntryProfileRegistry();
+        registry.ReplaceProfiles(profiles);
+        var existing = registry.ResolveDeclaredProfile(identity);
         return new GameTextEntryTargetItemViewModel(
-            identity.Key,
+            existing?.ApplicationIdentityKey ?? identity.Key,
             target.DisplayName,
             target.IsRecent,
             existing,
             target.SourceName,
-            file.Path,
+            existing?.ExecutablePath ?? file.Path,
             target.ArtworkPath,
             target.ExecutableCandidates);
     }

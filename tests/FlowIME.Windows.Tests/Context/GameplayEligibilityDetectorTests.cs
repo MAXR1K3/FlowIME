@@ -55,7 +55,7 @@ public sealed class GameplayEligibilityDetectorTests
         var observation = Assert.Single(detector.GetRecentObservations());
         Assert.False(observation.IsFullscreen);
         Assert.False(observation.IsEligible);
-        Assert.Equal("not-fullscreen", observation.Reason);
+        Assert.Equal("insufficient-game-evidence", observation.Reason);
         Assert.Contains(GameplayEvidenceKind.Direct3DExclusive, observation.Evidence);
     }
 
@@ -73,8 +73,53 @@ public sealed class GameplayEligibilityDetectorTests
         var observation = Assert.Single(detector.GetRecentObservations());
         Assert.False(observation.IsFullscreen);
         Assert.False(observation.IsEligible);
-        Assert.Equal("not-fullscreen", observation.Reason);
+        Assert.Equal("insufficient-game-evidence", observation.Reason);
         Assert.Empty(observation.Evidence);
+    }
+
+    [Fact]
+    public async Task User_declared_game_promotes_windowed_game_without_system_metadata()
+    {
+        var window = Request().Window;
+        var profiles = new GameTextEntryProfileRegistry();
+        profiles.ReplaceProfiles([new GameTextEntryProfile
+        {
+            Id = "declared",
+            ApplicationIdentityKey = FlowIME.Core.Context.ApplicationIdentity.FromWindow(window).Key,
+            Classification = GameplayClassification.Game,
+            DetectionMode = GameTextEntryDetectionMode.StandardTextControl
+        }]);
+        var detector = new GameplayEligibilityDetector(
+            profiles,
+            new FixedPresentationProbe(WindowedSnapshot()),
+            new GameplayEligibilityEvaluator(),
+            []);
+
+        var signals = await detector.DetectAsync(Request(), TestContext.Current.CancellationToken);
+
+        Assert.Single(signals);
+        Assert.Equal("user-declared-game", detector.GetRecentObservations().Single().Reason);
+    }
+
+    [Fact]
+    public async Task User_declared_not_game_vetoes_system_evidence()
+    {
+        var window = Request().Window;
+        var profiles = new GameTextEntryProfileRegistry();
+        profiles.ReplaceProfiles([new GameTextEntryProfile
+        {
+            Id = "not-game",
+            ApplicationIdentityKey = FlowIME.Core.Context.ApplicationIdentity.FromWindow(window).Key,
+            Classification = GameplayClassification.NotGame
+        }]);
+        var detector = new GameplayEligibilityDetector(
+            profiles,
+            new FixedPresentationProbe(WindowedSnapshot()),
+            new GameplayEligibilityEvaluator(),
+            [new FixedEvidenceProbe(Evidence(GameplayEvidenceKind.WindowsGameMetadata))]);
+
+        Assert.Empty(await detector.DetectAsync(Request(), TestContext.Current.CancellationToken));
+        Assert.Equal("user-declared-not-game", detector.GetRecentObservations().Single().Reason);
     }
 
     [Theory]
@@ -161,6 +206,30 @@ public sealed class GameplayEligibilityDetectorTests
             detector.DetectAsync(Request(), cancellation.Token).AsTask());
 
         Assert.Equal(0, presentation.CaptureCount);
+    }
+
+    [Theory]
+    [InlineData(GameplayClassification.Game, true)]
+    [InlineData(GameplayClassification.NotGame, false)]
+    public async Task Explicit_declaration_survives_failed_window_and_system_probes(GameplayClassification classification, bool eligible)
+    {
+        var profiles = new GameTextEntryProfileRegistry();
+        profiles.ReplaceProfiles([GameTextEntryProfile.CreateDefault(
+            FlowIME.Core.Context.ApplicationIdentity.FromWindow(Request().Window).Key, "Game") with
+        { Classification = classification, Enabled = false }]);
+        var detector = new GameplayEligibilityDetector(profiles, new ThrowingPresentationProbe(),
+            new GameplayEligibilityEvaluator(), [new ThrowingEvidenceProbe()]);
+        var signals = await detector.DetectAsync(Request(), TestContext.Current.CancellationToken);
+        Assert.Equal(eligible, signals.Any(signal => signal.Kind == InputContextSignalKind.Game));
+        var observation = Assert.Single(detector.GetRecentObservations());
+        Assert.Contains("window-presentation", observation.FailedProbeIds);
+        Assert.Contains("throwing", observation.FailedProbeIds);
+        Assert.True(observation.ExecutablePathAvailable);
+    }
+
+    private sealed class ThrowingPresentationProbe : IWindowPresentationProbe
+    {
+        public WindowPresentationSnapshot Capture(nint hwnd) => throw new InvalidOperationException("unavailable");
     }
 
     private static GameplayEligibilityDetector Detector(

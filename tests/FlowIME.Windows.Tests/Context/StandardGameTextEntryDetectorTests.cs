@@ -97,7 +97,7 @@ public sealed class StandardGameTextEntryDetectorTests
 
 
     [Fact]
-    public async Task Does_not_probe_or_latch_when_configured_game_is_not_fullscreen()
+    public async Task Windowed_configured_game_can_latch_standard_text_focus()
     {
         var window = Window();
         var runtime = new GameTextEntryRuntimeState();
@@ -121,8 +121,8 @@ public sealed class StandardGameTextEntryDetectorTests
             Request(window),
             TestContext.Current.CancellationToken);
 
-        Assert.Equal(0, probe.CaptureCount);
-        Assert.False(runtime.GetSnapshot().Active);
+        Assert.Equal(1, probe.CaptureCount);
+        Assert.True(runtime.GetSnapshot().Active);
     }
 
     [Fact]

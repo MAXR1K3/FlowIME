@@ -8,6 +8,7 @@ using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Input;
 using Windows.System;
 using Windows.UI.Core;
+using Windows.Storage.Pickers;
 
 namespace FlowIME.App.Views;
 
@@ -15,6 +16,7 @@ public sealed partial class GameTextEntryDialog : ContentDialog
 {
     private readonly RecentGameplayTarget _recent;
     private readonly GameTextEntryProfile? _existing;
+    private readonly AppServices _services;
     private readonly List<GameTextEntryKeyGesture> _enterGestures = [];
     private readonly List<GameTextEntryKeyGesture> _exitGestures = [];
 
@@ -26,11 +28,22 @@ public sealed partial class GameTextEntryDialog : ContentDialog
         InitializeComponent();
         _recent = recent;
         _existing = existing;
+        _services = services;
 
-        Title = $"{recent.ProcessName} · 游戏聊天";
+        Title = $"{recent.ProcessName} · 游戏识别与聊天";
         var seed = existing ?? GameTextEntryProfile.CreateDefault(
             recent.ApplicationIdentityKey,
             recent.ProcessName);
+        var classificationOptions = new ClassificationOption[]
+        {
+            new("指定为游戏", GameplayClassification.Game),
+            new("自动识别", GameplayClassification.Automatic),
+            new("不是游戏（排除）", GameplayClassification.NotGame)
+        };
+        ClassificationCombo.ItemsSource = classificationOptions;
+        ClassificationCombo.SelectedItem = classificationOptions.Single(option => option.Value == seed.Classification);
+        PrimaryExecutableText.Text = recent.ExecutablePath ?? seed.ExecutablePath ?? "保留已有应用身份；可在下方关联完整 EXE 路径。";
+        AdditionalExecutablesBox.Text = string.Join(Environment.NewLine, seed.AdditionalExecutablePaths);
         _enterGestures.AddRange(seed.EnterGestures);
         _exitGestures.AddRange(seed.ExitGestures);
         EnabledToggle.IsOn = seed.Enabled;
@@ -53,6 +66,36 @@ public sealed partial class GameTextEntryDialog : ContentDialog
     internal bool DeleteRequested { get; private set; }
 
     internal GameTextEntryProfile? ResultProfile { get; private set; }
+
+    private async void AddExecutableAliasButton_Click(object sender, RoutedEventArgs e)
+    {
+        AddExecutableAliasButton.IsEnabled = false;
+        try
+        {
+            var picker = new FileOpenPicker();
+            picker.FileTypeFilter.Add(".exe");
+            if (((App)Application.Current).MainWindow is { } window)
+                WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(window));
+            var file = await picker.PickSingleFileAsync();
+            if (file is not null)
+            {
+                AdditionalExecutablesBox.Text = string.Join(Environment.NewLine,
+                    ReadAdditionalExecutables().Append(file.Path).Distinct(StringComparer.OrdinalIgnoreCase));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Runtime.InteropServices.COMException)
+        {
+            ValidationBar.Message = "无法选择游戏程序，请改为填写完整 EXE 路径。";
+            ValidationBar.IsOpen = true;
+        }
+        finally
+        {
+            AddExecutableAliasButton.IsEnabled = true;
+        }
+    }
+
+    private string[] ReadAdditionalExecutables() =>
+        AdditionalExecutablesBox.Text.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
     private void HotkeyProfileToggle_Toggled(object sender, RoutedEventArgs e) =>
         UpdateHotkeyFields();
@@ -227,6 +270,14 @@ public sealed partial class GameTextEntryDialog : ContentDialog
     {
         ValidationBar.IsOpen = false;
 
+        if (ClassificationCombo.SelectedItem is not ClassificationOption classification)
+        {
+            args.Cancel = true;
+            ValidationBar.Message = "请选择游戏识别方式。";
+            ValidationBar.IsOpen = true;
+            return;
+        }
+
         var mode = GameTextEntryDetectionMode.None;
         if (StandardControlToggle.IsOn)
         {
@@ -270,6 +321,8 @@ public sealed partial class GameTextEntryDialog : ContentDialog
             ApplicationIdentityKey = _recent.ApplicationIdentityKey,
             ApplicationDisplayName = _recent.ProcessName,
             ExecutablePath = _recent.ExecutablePath ?? _existing?.ExecutablePath,
+            Classification = classification.Value,
+            AdditionalExecutablePaths = ReadAdditionalExecutables(),
             Enabled = EnabledToggle.IsOn,
             DetectionMode = mode,
             ProviderId = target.ProviderId,
@@ -277,6 +330,28 @@ public sealed partial class GameTextEntryDialog : ContentDialog
             EnterGestures = HotkeyProfileToggle.IsOn ? _enterGestures.ToArray() : [],
             ExitGestures = HotkeyProfileToggle.IsOn ? _exitGestures.ToArray() : []
         };
+        try
+        {
+            var validator = new GameTextEntryProfileRegistry();
+            if (!GameProfileTargetValidator.HasReliableTarget(ResultProfile))
+            {
+                ResultProfile = null;
+                args.Cancel = true;
+                ValidationBar.Message = "请在“关联的游戏程序”中添加实际游戏 EXE；仅进程名不足以可靠识别游戏。";
+                ValidationBar.IsOpen = true;
+                return;
+            }
+            validator.ReplaceProfiles(_services.GetGameTextEntryProfiles()
+                .Where(profile => !StringComparer.Ordinal.Equals(profile.ApplicationIdentityKey, ResultProfile.ApplicationIdentityKey))
+                .Append(ResultProfile));
+        }
+        catch (ArgumentException)
+        {
+            ResultProfile = null;
+            args.Cancel = true;
+            ValidationBar.Message = "无法保存：请检查 EXE 是否为完整路径，以及是否与其他游戏配置重复关联。";
+            ValidationBar.IsOpen = true;
+        }
     }
 
     private static List<TargetOption> BuildTargetOptions(AppServices services)
@@ -293,6 +368,11 @@ public sealed partial class GameTextEntryDialog : ContentDialog
         }
 
         return options;
+    }
+
+    private sealed record ClassificationOption(string DisplayName, GameplayClassification Value)
+    {
+        public override string ToString() => DisplayName;
     }
 
     private sealed record TargetOption(string DisplayName, string? ProviderId, InputAction Action)

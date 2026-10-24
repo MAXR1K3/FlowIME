@@ -12,6 +12,13 @@ public enum GameTextEntryDetectionMode
     Adapter = 1 << 3
 }
 
+public enum GameplayClassification
+{
+    Automatic,
+    Game,
+    NotGame
+}
+
 [Flags]
 public enum GameTextEntryModifierKeys
 {
@@ -43,6 +50,12 @@ public sealed record GameTextEntryProfile
     public string ApplicationDisplayName { get; init; } = "Game";
 
     public string? ExecutablePath { get; init; }
+
+    public IReadOnlyList<string> AdditionalExecutablePaths { get; init; } =
+        Array.Empty<string>();
+
+    public GameplayClassification Classification { get; init; } =
+        GameplayClassification.Game;
 
     public bool Enabled { get; init; } = true;
 
@@ -117,7 +130,33 @@ public sealed class GameTextEntryProfileRegistry
                 nameof(profiles));
         }
 
+        var duplicateTarget = next
+            .SelectMany(profile => TargetTokens(profile).Select(token => (profile, token)))
+            .GroupBy(item => item.token, StringComparer.OrdinalIgnoreCase)
+            .FirstOrDefault(group => group.Select(item => item.profile.Id).Distinct(StringComparer.Ordinal).Count() > 1);
+        if (duplicateTarget is not null)
+        {
+            throw new ArgumentException(
+                $"Conflicting GameTextEntry target '{duplicateTarget.Key}'.",
+                nameof(profiles));
+        }
+
         Interlocked.Exchange(ref _profiles, next);
+    }
+
+    private static IEnumerable<string> TargetTokens(GameTextEntryProfile profile)
+    {
+        yield return $"identity:{profile.ApplicationIdentityKey}";
+        if (profile.ExecutablePath is not null)
+        {
+            yield return $"path:{profile.ExecutablePath}";
+            yield return $"identity:{CreatePathIdentity(profile.ExecutablePath).Key}";
+        }
+        foreach (var path in profile.AdditionalExecutablePaths)
+        {
+            yield return $"path:{path}";
+            yield return $"identity:{CreatePathIdentity(path).Key}";
+        }
     }
 
     public GameTextEntryProfile? Resolve(ApplicationIdentity application)
@@ -126,9 +165,29 @@ public sealed class GameTextEntryProfileRegistry
         return Volatile.Read(ref _profiles)
             .FirstOrDefault(profile =>
                 profile.Enabled &&
-                StringComparer.Ordinal.Equals(
-                    profile.ApplicationIdentityKey,
-                    application.Key));
+                profile.Classification != GameplayClassification.NotGame &&
+                Matches(profile, application));
+    }
+
+    public GameTextEntryProfile? ResolveDeclaredProfile(ApplicationIdentity application)
+    {
+        ArgumentNullException.ThrowIfNull(application);
+        return Volatile.Read(ref _profiles)
+            .FirstOrDefault(profile => Matches(profile, application));
+    }
+
+    private static bool Matches(GameTextEntryProfile profile, ApplicationIdentity application)
+    {
+        if (IsTrustedIdentity(application.Key) &&
+            StringComparer.OrdinalIgnoreCase.Equals(profile.ApplicationIdentityKey, application.Key))
+        {
+            return true;
+        }
+
+        var path = TryNormalizePath(application.ExecutablePath);
+        return path is not null &&
+            (StringComparer.OrdinalIgnoreCase.Equals(profile.ExecutablePath, path) ||
+             profile.AdditionalExecutablePaths.Any(item => StringComparer.OrdinalIgnoreCase.Equals(item, path)));
     }
 
     private static GameTextEntryProfile NormalizeAndValidate(GameTextEntryProfile profile)
@@ -140,10 +199,23 @@ public sealed class GameTextEntryProfileRegistry
             profile.ApplicationIdentityKey,
             nameof(profile.ApplicationIdentityKey));
 
-        if (profile.DetectionMode == GameTextEntryDetectionMode.None)
+        const GameTextEntryDetectionMode knownDetectionModes =
+            GameTextEntryDetectionMode.StandardTextControl |
+            GameTextEntryDetectionMode.HotkeyProfile |
+            GameTextEntryDetectionMode.Manual |
+            GameTextEntryDetectionMode.Adapter;
+        if (profile.DetectionMode == GameTextEntryDetectionMode.None ||
+            (profile.DetectionMode & ~knownDetectionModes) != 0)
         {
             throw new ArgumentException(
-                "GameTextEntry profile detection mode cannot be None.",
+                "GameTextEntry profile detection mode is invalid.",
+                nameof(profile));
+        }
+
+        if (!Enum.IsDefined(profile.Classification))
+        {
+            throw new ArgumentException(
+                "GameTextEntry profile classification is invalid.",
                 nameof(profile));
         }
 
@@ -176,6 +248,11 @@ public sealed class GameTextEntryProfileRegistry
                 nameof(profile));
         }
 
+        var additionalPaths = (profile.AdditionalExecutablePaths ?? Array.Empty<string>())
+            .Select(path => NormalizePath(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
         return profile with
         {
             Id = id,
@@ -183,12 +260,89 @@ public sealed class GameTextEntryProfileRegistry
             ApplicationDisplayName = displayName,
             ExecutablePath = string.IsNullOrWhiteSpace(profile.ExecutablePath)
                 ? null
-                : profile.ExecutablePath.Trim(),
+                : NormalizePath(profile.ExecutablePath),
+            AdditionalExecutablePaths = Array.AsReadOnly(additionalPaths),
             ProviderId = providerId,
             EnterGestures = enterGestures,
             ExitGestures = exitGestures
         };
     }
+
+    private static string NormalizePath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            throw new ArgumentException("Executable path cannot be empty.", nameof(path));
+        }
+
+        var candidate = path.Trim().Trim('"').Replace('/', '\\');
+        if (candidate.Length == 0 || IsDevicePath(candidate) ||
+            candidate.EndsWith('\\') || !Path.IsPathFullyQualified(candidate))
+        {
+            throw new ArgumentException(
+                $"Executable path '{path}' must be a fully qualified local or UNC .exe path.",
+                nameof(path));
+        }
+
+        string fullPath;
+        try
+        {
+            fullPath = Path.GetFullPath(candidate);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new ArgumentException(
+                $"Executable path '{path}' is invalid.",
+                nameof(path),
+                exception);
+        }
+
+        if (!fullPath.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ||
+            Directory.Exists(fullPath))
+        {
+            throw new ArgumentException(
+                $"Executable path '{path}' must identify an .exe file.",
+                nameof(path));
+        }
+
+        return fullPath.TrimEnd('\\');
+    }
+
+    private static string? TryNormalizePath(string? path) =>
+        string.IsNullOrWhiteSpace(path) ? null : TryNormalizePathValue(path);
+
+    private static string? TryNormalizePathValue(string path)
+    {
+        try
+        {
+            return NormalizePath(path);
+        }
+        catch (ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static bool IsTrustedIdentity(string key) =>
+        key.StartsWith("path:", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("aumid:", StringComparison.OrdinalIgnoreCase) ||
+        key.StartsWith("pfn:", StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsDevicePath(string path) =>
+        path.StartsWith("\\\\?\\", StringComparison.Ordinal) ||
+        path.StartsWith("\\\\.\\", StringComparison.Ordinal) ||
+        path.StartsWith("\\??\\", StringComparison.Ordinal);
+
+    private static ApplicationIdentity CreatePathIdentity(string path) =>
+        ApplicationIdentity.FromWindow(new WindowContext(
+            nint.Zero,
+            0,
+            0,
+            string.Empty,
+            path,
+            null,
+            null,
+            null));
 
     private static string NormalizeOptional(string? value, string fallback)
     {

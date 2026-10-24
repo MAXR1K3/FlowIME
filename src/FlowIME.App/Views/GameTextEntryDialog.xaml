@@ -2,7 +2,7 @@
     x:Class="FlowIME.App.Views.GameTextEntryDialog"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    Title="游戏文字输入"
+    Title="游戏识别与文字输入"
     PrimaryButtonText="保存"
     CloseButtonText="取消"
     PrimaryButtonStyle="{StaticResource FlowPrimaryButtonStyle}"
@@ -38,6 +38,17 @@
             </VisualStateManager.VisualStateGroups>
 
 
+            <ComboBox x:Name="ClassificationCombo" Header="游戏识别" HorizontalAlignment="Stretch" />
+            <TextBlock Text="明确指定为游戏后，窗口化和无边框模式均可识别，不依赖 Windows 游戏记录。排除项优先于自动识别。" Style="{StaticResource FlowTertiaryTextStyle}" />
+            <Expander Header="关联的游戏程序" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="8">
+                    <TextBlock x:Name="PrimaryExecutableText" TextWrapping="Wrap" IsTextSelectionEnabled="True" />
+                    <TextBox x:Name="AdditionalExecutablesBox" Header="其他游戏 EXE（每行一个完整路径）" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="72" MaxHeight="160" />
+                    <Button x:Name="AddExecutableAliasButton" Content="添加其他 EXE…" Click="AddExecutableAliasButton_Click" />
+                    <TextBlock Text="只关联实际游戏主程序或 DX11 / DX12 等版本；不要添加商店启动器、反作弊服务或整个目录。程序移动后请重新关联。" Style="{StaticResource FlowTertiaryTextStyle}" />
+                </StackPanel>
+            </Expander>
+
             <Grid ColumnSpacing="16" RowSpacing="4">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -48,8 +59,8 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Spacing="3">
-                    <TextBlock Text="启用此游戏配置" FontWeight="SemiBold" TextWrapping="Wrap" />
-                    <TextBlock Text="停用后保留配置，不再自动切换聊天输入状态。" Style="{StaticResource FlowTertiaryTextStyle}" />
+                    <TextBlock Text="启用聊天输入切换" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Text="关闭仅停用聊天切换，不取消上方的游戏识别设置。" Style="{StaticResource FlowTertiaryTextStyle}" />
                 </StackPanel>
                 <ToggleSwitch x:Name="EnabledToggle" Style="{StaticResource FlowToggleSwitchStyle}" AutomationProperties.Name="启用配置" Grid.Column="1" VerticalAlignment="Center" />
             </Grid>

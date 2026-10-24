@@ -38,6 +38,6 @@ public sealed class GameplayDetectionStatusViewModelTests
 
         Assert.False(status.IsActive);
         Assert.Equal("当前未检测到游戏", status.Title);
-        Assert.Equal("进入游戏后会自动识别，无需手动扫描。", status.Description);
+        Assert.Equal("自动识别未命中时，请添加实际游戏 EXE 并选择“指定为游戏”。扫描结果需保存配置后才作为指定游戏生效。", status.Description);
     }
 }

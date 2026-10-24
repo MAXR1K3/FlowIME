@@ -35,7 +35,7 @@ public sealed class GameplayEligibilityEvaluatorTests
             [Evidence(GameplayEvidenceKind.Direct3DExclusive)]);
 
         Assert.False(result.IsEligible);
-        Assert.Equal("not-fullscreen", result.Reason);
+        Assert.Equal("insufficient-game-evidence", result.Reason);
     }
 
     [Theory]

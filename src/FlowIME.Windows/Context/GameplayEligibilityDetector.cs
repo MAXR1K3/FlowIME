@@ -17,7 +17,12 @@ public sealed record GameplayEligibilityObservation(
     bool IsEligible,
     ContextSignalConfidence Confidence,
     string Reason,
-    IReadOnlyList<GameplayEvidenceKind> Evidence);
+    IReadOnlyList<GameplayEvidenceKind> Evidence)
+{
+    public bool ExecutablePathAvailable { get; init; }
+
+    public IReadOnlyList<string> FailedProbeIds { get; init; } = Array.Empty<string>();
+}
 
 public sealed class GameplayEligibilityDetector : IInputContextDetector
 {
@@ -28,17 +33,12 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
     private readonly IWindowPresentationProbe _presentationProbe;
     private readonly GameplayEligibilityEvaluator _evaluator;
     private readonly IReadOnlyList<IGameplayEvidenceProbe> _evidenceProbes;
+    private readonly GameTextEntryProfileRegistry? _profiles;
     private readonly object _observationSync = new();
     private readonly Queue<GameplayEligibilityObservation> _observations = new();
 
     public GameplayEligibilityDetector()
-        : this(
-            new Win32WindowPresentationProbe(),
-            new GameplayEligibilityEvaluator(),
-            [
-                new GameConfigStoreEvidenceProbe(),
-                new Direct3DFullscreenEvidenceProbe()
-            ])
+        : this(new GameTextEntryProfileRegistry())
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -47,11 +47,36 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
         }
     }
 
+    public GameplayEligibilityDetector(GameTextEntryProfileRegistry profiles)
+        : this(
+            profiles,
+            new Win32WindowPresentationProbe(),
+            new GameplayEligibilityEvaluator(),
+            [
+                new GameConfigStoreEvidenceProbe(),
+                new Direct3DFullscreenEvidenceProbe()
+            ])
+    {
+        ArgumentNullException.ThrowIfNull(profiles);
+        if (!OperatingSystem.IsWindows())
+            throw new PlatformNotSupportedException("Gameplay eligibility detection requires Windows.");
+    }
+
     internal GameplayEligibilityDetector(
         IWindowPresentationProbe presentationProbe,
         GameplayEligibilityEvaluator evaluator,
         IEnumerable<IGameplayEvidenceProbe> evidenceProbes)
+        : this(null, presentationProbe, evaluator, evidenceProbes)
     {
+    }
+
+    internal GameplayEligibilityDetector(
+        GameTextEntryProfileRegistry? profiles,
+        IWindowPresentationProbe presentationProbe,
+        GameplayEligibilityEvaluator evaluator,
+        IEnumerable<IGameplayEvidenceProbe> evidenceProbes)
+    {
+        _profiles = profiles;
         _presentationProbe = presentationProbe ??
             throw new ArgumentNullException(nameof(presentationProbe));
         _evaluator = evaluator ?? throw new ArgumentNullException(nameof(evaluator));
@@ -93,12 +118,30 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
         ArgumentNullException.ThrowIfNull(request);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var presentation = _presentationProbe.Capture(request.Window.Hwnd);
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var isFullscreen = presentation.IsFullscreen(
-            FullscreenWindowDetector.DefaultEdgeTolerancePixels);
         var evidence = new List<GameplayEvidence>();
+        var failedProbeIds = new List<string>();
+        var isFullscreen = false;
+        try
+        {
+            isFullscreen = _presentationProbe.Capture(request.Window.Hwnd).IsFullscreen(
+                FullscreenWindowDetector.DefaultEdgeTolerancePixels);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
+        {
+            failedProbeIds.Add("window-presentation");
+            Trace.WriteLine($"[FlowIME.Gameplay] utc={DateTimeOffset.UtcNow:O} probe=window-presentation result=failed type={ex.GetType().Name}");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var application = FlowIME.Core.Context.ApplicationIdentity.FromWindow(request.Window);
+        var profile = _profiles?.ResolveDeclaredProfile(application);
+        if (profile?.Classification == GameplayClassification.Game)
+        {
+            evidence.Add(new GameplayEvidence(GameplayEvidenceKind.UserDeclaredGame, "user-profile", ContextSignalConfidence.Certain));
+        }
+        else if (profile?.Classification == GameplayClassification.NotGame)
+        {
+            evidence.Add(new GameplayEvidence(GameplayEvidenceKind.UserDeclaredNotGame, "user-profile", ContextSignalConfidence.Certain));
+        }
         foreach (var probe in _evidenceProbes)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -111,21 +154,25 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
                     evidence.Add(item);
                 }
             }
-            catch (Exception ex)
+            catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
             {
+                failedProbeIds.Add(probe.Id);
                 Trace.WriteLine(
                     $"[FlowIME.Gameplay] utc={DateTimeOffset.UtcNow:O} " +
                     $"probe={probe.Id} result=failed type={ex.GetType().Name}");
             }
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
         var assessment = _evaluator.Evaluate(isFullscreen, evidence);
-        RecordObservation(request, assessment, isFullscreen);
+        RecordObservation(request, assessment, isFullscreen, failedProbeIds);
         Trace.WriteLine(
             $"[FlowIME.Gameplay] utc={DateTimeOffset.UtcNow:O} " +
             $"process={SanitizeProcessName(request.Window.ProcessName)} " +
             $"eligible={assessment.IsEligible} reason={assessment.Reason} " +
-            $"evidence={string.Join(',', assessment.Evidence.Select(item => item.Kind))}");
+            $"evidence={string.Join(',', assessment.Evidence.Select(item => item.Kind))} " +
+            $"pathAvailable={!string.IsNullOrWhiteSpace(request.Window.ExecutablePath)} " +
+            $"failedProbes={string.Join(',', failedProbeIds)}");
 
         if (!assessment.IsEligible)
         {
@@ -143,7 +190,8 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
     private void RecordObservation(
         ContextDetectionRequest request,
         GameplayEligibilityAssessment assessment,
-        bool isFullscreen)
+        bool isFullscreen,
+        IReadOnlyList<string> failedProbeIds)
     {
         var observation = new GameplayEligibilityObservation(
             request.Timestamp,
@@ -155,7 +203,12 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
             assessment.Evidence
                 .Select(item => item.Kind)
                 .Distinct()
-                .ToArray());
+                .ToArray())
+        {
+            ExecutablePathAvailable = !string.IsNullOrWhiteSpace(request.Window.ExecutablePath),
+
+            FailedProbeIds = failedProbeIds.ToArray()
+        };
 
         lock (_observationSync)
         {
@@ -167,6 +220,7 @@ public sealed class GameplayEligibilityDetector : IInputContextDetector
             _observations.Enqueue(observation);
         }
     }
+
 
     private static void ValidateProbeIds(IReadOnlyList<IGameplayEvidenceProbe> probes)
     {

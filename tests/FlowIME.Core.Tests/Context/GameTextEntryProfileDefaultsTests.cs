@@ -16,5 +16,7 @@ public sealed class GameTextEntryProfileDefaultsTests
         Assert.Equal(
             [new GameTextEntryKeyGesture(0x0D), new GameTextEntryKeyGesture(0x1B)],
             profile.ExitGestures);
+        Assert.Equal(GameplayClassification.Game, profile.Classification);
+        Assert.Empty(profile.AdditionalExecutablePaths);
     }
 }

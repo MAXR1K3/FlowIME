@@ -91,16 +91,10 @@ public sealed class AppServices : IAsyncDisposable
         _foregroundSource.ForegroundWindowChanged += OnRawForegroundChangedForHotkeyGuard;
         var resolver = new WindowResolver();
         var ruleEngine = new RuleEngine();
-        _gameplayEligibilityDetector = new GameplayEligibilityDetector();
-        var contextEngine = new RecentInputContextCache(
-            new InputContextEngine([
-                new FullscreenWindowDetector(),
-                _gameplayEligibilityDetector,
-                new StandardGameTextEntryDetector(
-                    _gameTextEntryProfiles,
-                    _gameTextEntryRuntimeState),
-                new GameTextEntryRuntimeDetector(_gameTextEntryRuntimeState)
-            ]));
+        var gameplayPipeline = new GameplayContextPipeline(
+            _gameTextEntryProfiles, _gameTextEntryRuntimeState);
+        _gameplayEligibilityDetector = gameplayPipeline.EligibilityDetector;
+        var contextEngine = gameplayPipeline.Engine;
         var decisionEngine = new InputDecisionEngine(
             ruleEngine,
             [
@@ -317,12 +311,14 @@ public sealed class AppServices : IAsyncDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         _gameTextEntryProfiles.ReplaceProfiles(profiles);
+        // A changed declaration/alias can invalidate an active chat latch even
+        // when the main identity differs from the currently running executable.
+        _gameTextEntryRuntimeState.Deactivate("profiles-replaced");
         EnsureGameTextEntryHotkeyMonitorStarted();
-
-        if (_gameTextEntryRuntimeState.GetSnapshot().Active)
-        {
-            RequestGameTextEntryRefresh();
-        }
+        _gameTextEntryHotkeyMonitor.UpdateContext(
+            IsAutomationEnabled, gameContext: false, gameTextEntry: false,
+            profile: null, processName: "profiles-replaced");
+        RequestGameTextEntryRefresh();
     }
 
     public RecentGameplayTarget? GetRecentGameplayTarget()
@@ -351,29 +347,12 @@ public sealed class AppServices : IAsyncDisposable
             .ToArray();
         var validator = new GameTextEntryProfileRegistry();
         validator.ReplaceProfiles(next);
+        GameProfileTargetValidator.RequireReliableTarget(
+            validator.Profiles.Single(item => StringComparer.Ordinal.Equals(item.ApplicationIdentityKey, profile.ApplicationIdentityKey)));
         await _gameTextEntryProfileRepository
             .ReplaceProfilesAsync(validator.Profiles, cancellationToken)
             .ConfigureAwait(false);
-        _gameTextEntryProfiles.ReplaceProfiles(validator.Profiles);
-        EnsureGameTextEntryHotkeyMonitorStarted();
-
-        var runtime = _gameTextEntryRuntimeState.GetSnapshot();
-        if (runtime.Active &&
-            StringComparer.Ordinal.Equals(runtime.ApplicationKey, profile.ApplicationIdentityKey) &&
-            (!profile.Enabled ||
-             (runtime.Source == GameTextEntryActivationSource.HotkeyProfile &&
-              !profile.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile)) ||
-             (runtime.Source == GameTextEntryActivationSource.StandardTextControl &&
-              !profile.DetectionMode.HasFlag(GameTextEntryDetectionMode.StandardTextControl))))
-        {
-            _gameTextEntryRuntimeState.Deactivate("profile-updated");
-        }
-
-        if (ForegroundContext.Current is { } current)
-        {
-            UpdateGameTextEntryHotkeyMonitorContext(current, IsAutomationEnabled);
-        }
-        RequestGameTextEntryRefresh();
+        ReplaceGameTextEntryProfiles(validator.Profiles);
     }
 
     public async ValueTask<bool> DeleteGameTextEntryProfileAsync(
@@ -399,19 +378,7 @@ public sealed class AppServices : IAsyncDisposable
         await _gameTextEntryProfileRepository
             .ReplaceProfilesAsync(next, cancellationToken)
             .ConfigureAwait(false);
-        _gameTextEntryProfiles.ReplaceProfiles(next);
-        var runtime = _gameTextEntryRuntimeState.GetSnapshot();
-        if (runtime.Active &&
-            StringComparer.Ordinal.Equals(runtime.ApplicationKey, applicationIdentityKey))
-        {
-            _gameTextEntryRuntimeState.Deactivate("profile-deleted");
-        }
-
-        if (ForegroundContext.Current is { } foreground)
-        {
-            UpdateGameTextEntryHotkeyMonitorContext(foreground, IsAutomationEnabled);
-        }
-        RequestGameTextEntryRefresh();
+        ReplaceGameTextEntryProfiles(next);
         return true;
     }
 
@@ -805,7 +772,9 @@ public sealed class AppServices : IAsyncDisposable
                 $"{observation.ProcessName}|fullscreen={observation.IsFullscreen}|" +
                 $"eligible={observation.IsEligible}|confidence={observation.Confidence}|" +
                 $"reason={SanitizeDiagnosticToken(observation.Reason)}|" +
-                $"evidence={FormatGameplayEvidence(observation.Evidence)}");
+                $"evidence={FormatGameplayEvidence(observation.Evidence)}|" +
+                $"pathAvailable={observation.ExecutablePathAvailable}|" +
+                $"failedProbes={string.Join(',', observation.FailedProbeIds.Select(SanitizeDiagnosticToken))}");
         }
         builder.AppendLine($"startupRegistered={FormatNullable(startupEnabled)}");
         var ruleDiagnostics = RuleSetAnalyzer.Analyze(rules);
@@ -1004,18 +973,7 @@ public sealed class AppServices : IAsyncDisposable
             var profiles = await _gameTextEntryProfileRepository
                 .GetProfilesAsync()
                 .ConfigureAwait(false);
-            _gameTextEntryProfiles.ReplaceProfiles(profiles);
-            EnsureGameTextEntryHotkeyMonitorStarted();
-
-            if (ForegroundContext.Current is { } current)
-            {
-                UpdateGameTextEntryHotkeyMonitorContext(current, IsAutomationEnabled);
-            }
-
-            if (IsAutomationEnabled)
-            {
-                _automation.RequestCurrentReapply(InputContextTrigger.GameTextEntryChanged);
-            }
+            ReplaceGameTextEntryProfiles(profiles);
 
             Trace.WriteLine(
                 $"[FlowIME.GameTextEntry] utc={DateTimeOffset.UtcNow:O} " +

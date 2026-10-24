@@ -79,19 +79,6 @@ public sealed class StandardGameTextEntryDetector : IInputContextDetector
             return ValueTask.FromResult<IReadOnlyList<InputContextSignal>>([]);
         }
 
-        // The profile was created from a confirmed Gameplay identity, but the same
-        // executable can also expose launcher/windowed UI. Only latch standard text
-        // focus while the current top-level window is geometrically fullscreen; the
-        // context engine will additionally require the independent Game signal.
-        var presentation = _presentationProbe.Capture(request.Window.Hwnd);
-        if (!presentation.IsFullscreen(FullscreenWindowDetector.DefaultEdgeTolerancePixels))
-        {
-            CommitIfLatest(
-                request,
-                () => DeactivateOwnedSession(application, request, "standard-not-fullscreen"));
-            return ValueTask.FromResult<IReadOnlyList<InputContextSignal>>([]);
-        }
-
         var observation = _probe.Capture(request);
         cancellationToken.ThrowIfCancellationRequested();
 

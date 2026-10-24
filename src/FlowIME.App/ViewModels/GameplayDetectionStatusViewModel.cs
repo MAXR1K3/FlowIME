@@ -25,7 +25,7 @@ internal sealed record GameplayDetectionStatusViewModel(
             return new GameplayDetectionStatusViewModel(
                 false,
                 "当前未检测到游戏",
-                "进入游戏后会自动识别，无需手动扫描。");
+                "自动识别未命中时，请添加实际游戏 EXE 并选择“指定为游戏”。扫描结果需保存配置后才作为指定游戏生效。");
         }
 
         return new GameplayDetectionStatusViewModel(
