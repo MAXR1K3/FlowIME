@@ -782,6 +782,162 @@ public sealed class AutomationCoordinatorTests
     }
 
     [Fact]
+    public async Task User_toggle_gesture_keeps_mode_across_focus_changes_until_window_is_left()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow, ChromeWindow);
+        var repository = RepositoryWith(RuleFor(CodeWindow, InputAction.English));
+        var backend = new FakeInputMethodBackend
+        {
+            CurrentState = State(InputMode.Chinese)
+        };
+        var journal = new AutomationDecisionJournal();
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend,
+            decisionJournal: journal);
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, backend.ApplyCount);
+
+        // The user taps Shift and the IME switches to Chinese.
+        backend.CurrentState = State(InputMode.Chinese);
+        var captured = await coordinator.CaptureManualInputSwitchAsync(
+            "toggle-LoneShift",
+            TestContext.Current.CancellationToken);
+
+        Assert.NotNull(captured);
+        Assert.Equal(InputMode.Chinese, captured.Mode);
+        Assert.Equal(CodeWindow.Hwnd, captured.Hwnd);
+
+        source.RaiseFocus((nint)0x7777);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        source.RaiseFocus((nint)0x7778);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(1, backend.ApplyCount);
+        Assert.Equal(InputMode.Chinese, backend.CurrentState.Mode);
+        Assert.Equal(
+            AutomationDecisionOutcome.SuppressedByManualOverride,
+            journal.GetRecent(1).Single().Outcome);
+
+        source.Raise(ChromeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, backend.ApplyCount);
+        Assert.Equal(InputMode.English, backend.CurrentState.Mode);
+    }
+
+    [Fact]
+    public async Task User_toggle_back_to_rule_mode_does_not_block_rule()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow);
+        var repository = RepositoryWith(RuleFor(CodeWindow, InputAction.English));
+        var backend = new FakeInputMethodBackend
+        {
+            CurrentState = State(InputMode.Chinese)
+        };
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend);
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        backend.CurrentState = State(InputMode.Chinese);
+        await coordinator.CaptureManualInputSwitchAsync(
+            "toggle-LoneShift",
+            TestContext.Current.CancellationToken);
+        backend.CurrentState = State(InputMode.English);
+        await coordinator.CaptureManualInputSwitchAsync(
+            "toggle-LoneShift",
+            TestContext.Current.CancellationToken);
+
+        // An application restoring a stale per-control context is still corrected.
+        backend.CurrentState = State(InputMode.Chinese);
+        source.RaiseFocus((nint)0x7777);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(2, backend.ApplyCount);
+        Assert.Equal(InputMode.English, backend.CurrentState.Mode);
+    }
+
+    [Fact]
+    public async Task Toggle_gesture_without_definite_mode_registers_no_override()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow);
+        var repository = RepositoryWith(RuleFor(CodeWindow, InputAction.English));
+        var backend = new FakeInputMethodBackend
+        {
+            CurrentState = State(InputMode.Chinese)
+        };
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend);
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        backend.CurrentState = State(InputMode.Unknown);
+        var captured = await coordinator.CaptureManualInputSwitchAsync(
+            "toggle-LoneShift",
+            TestContext.Current.CancellationToken);
+
+        Assert.Null(captured);
+    }
+
+    [Fact]
+    public async Task Toggle_gesture_is_ignored_while_paused_or_in_own_process()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow);
+        var repository = RepositoryWith(RuleFor(CodeWindow, InputAction.English));
+        var backend = new FakeInputMethodBackend
+        {
+            CurrentState = State(InputMode.Chinese)
+        };
+        await using var paused = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend);
+        paused.Start();
+        source.SetCurrent(CodeWindow.Hwnd);
+        await paused.SetExecutionEnabledAsync(false);
+
+        Assert.Null(await paused.CaptureManualInputSwitchAsync(
+            "toggle-CtrlSpace",
+            TestContext.Current.CancellationToken));
+
+        await using var ownProcess = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend,
+            ignoredProcessId: CodeWindow.ProcessId);
+        ownProcess.Start();
+
+        Assert.Null(await ownProcess.CaptureManualInputSwitchAsync(
+            "toggle-CtrlSpace",
+            TestContext.Current.CancellationToken));
+        Assert.Equal(0, backend.GetStateCount);
+    }
+
+    [Fact]
     public async Task Runtime_snapshot_reports_started_and_execution_gate_state()
     {
         var source = new FakeForegroundWindowSource();

@@ -97,6 +97,27 @@ public sealed class ManualOverrideGuardTests
         Assert.False(guard.Evaluate(context, Decision(InputAction.English)).Suppress);
     }
 
+    [Fact]
+    public void Window_scoped_override_lasts_until_foreground_changes()
+    {
+        var clock = new TestTimeProvider(new DateTimeOffset(2026, 9, 18, 12, 0, 0, TimeSpan.Zero));
+        var guard = new ManualOverrideGuard(timeProvider: clock);
+        var context = Context((nint)0x10);
+        var snapshot = guard.Register(
+            context.Window,
+            InputMode.Chinese,
+            "toggle-LoneShift",
+            Timeout.InfiniteTimeSpan);
+
+        Assert.Equal(context.Application.Key, snapshot.ApplicationKey);
+        clock.Advance(TimeSpan.FromHours(8));
+        Assert.True(guard.Evaluate(context, Decision(InputAction.English)).Suppress);
+
+        guard.NotifyForegroundChanged((nint)0x20);
+
+        Assert.Null(guard.Current);
+    }
+
     private static InputContextSnapshot Context(
         nint hwnd,
         string? packageFamilyName = null)

@@ -32,6 +32,14 @@ public sealed record AutomationOptions
 
     public int MaxAttempts { get; init; } = 3;
 
+    /// <summary>
+    /// Delay between a user IME toggle gesture and reading the resulting mode. The
+    /// target application processes the toggle key asynchronously, so an immediate
+    /// read can still observe the previous mode.
+    /// </summary>
+    public TimeSpan ManualSwitchSettleDelay { get; init; } =
+        TimeSpan.FromMilliseconds(150);
+
     internal TimeSpan GetRetryDelay(int completedAttempt) =>
         completedAttempt <= 1 ? RetryDelay : FinalRetryDelay;
 
@@ -63,6 +71,13 @@ public sealed record AutomationOptions
             throw new ArgumentOutOfRangeException(
                 nameof(EntryFocusGracePeriod),
                 "Entry focus grace period cannot be negative.");
+        }
+
+        if (ManualSwitchSettleDelay < TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(ManualSwitchSettleDelay),
+                "Manual switch settle delay cannot be negative.");
         }
 
         if (MaxAttempts < 1)

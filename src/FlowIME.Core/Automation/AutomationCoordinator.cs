@@ -126,6 +126,86 @@ public sealed class AutomationCoordinator : IAsyncDisposable
 
     public void ClearManualOverride() => _manualOverrideGuard.Clear();
 
+    /// <summary>
+    /// Called after the user pressed a recognized IME toggle gesture. Waits for the
+    /// target application to process the key, reads the resulting mode and, when it
+    /// is a definite Chinese/English state, keeps it as a manual override for the
+    /// current foreground window until the foreground changes. Focus changes inside
+    /// that window then no longer revert the user's choice.
+    /// </summary>
+    public async ValueTask<ManualOverrideSnapshot?> CaptureManualInputSwitchAsync(
+        string source,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+
+        lock (_sync)
+        {
+            if (!_started || _disposed || !_executionEnabled)
+            {
+                return null;
+            }
+        }
+
+        nint foreground;
+        try
+        {
+            foreground = _foregroundSource.GetCurrentForegroundWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+
+        if (foreground == 0)
+        {
+            return null;
+        }
+
+        await DelayIfNeededAsync(_options.ManualSwitchSettleDelay, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (_foregroundSource.GetCurrentForegroundWindow() != foreground)
+        {
+            return null;
+        }
+
+        var window = await _windowResolver
+            .ResolveAsync(foreground, cancellationToken)
+            .ConfigureAwait(false);
+        if (window is null ||
+            (_ignoredProcessId != 0 && window.ProcessId == _ignoredProcessId))
+        {
+            return null;
+        }
+
+        var state = await _inputBackend
+            .GetStateAsync(window, cancellationToken)
+            .ConfigureAwait(false);
+        if (state.Mode is not (InputMode.Chinese or InputMode.English) ||
+            _foregroundSource.GetCurrentForegroundWindow() != foreground)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+                $"stage=manual-switch-ignored foreground=0x{foreground:X} " +
+                $"process={window.ProcessName} source={SanitizeTraceValue(source)} " +
+                $"mode={state.Mode}");
+            return null;
+        }
+
+        var snapshot = _manualOverrideGuard.Register(
+            window,
+            state.Mode,
+            source,
+            Timeout.InfiniteTimeSpan);
+        Trace.WriteLine(
+            $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+            $"stage=manual-switch-observed foreground=0x{foreground:X} " +
+            $"process={window.ProcessName} source={SanitizeTraceValue(source)} " +
+            $"mode={state.Mode}");
+        return snapshot;
+    }
+
     public void Start()
     {
         lock (_sync)

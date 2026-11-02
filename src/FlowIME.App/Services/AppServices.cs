@@ -123,6 +123,7 @@ public sealed class AppServices : IAsyncDisposable
             manualOverrideGuard: manualOverrideGuard,
             decisionJournal: decisionJournal);
         _automation.DecisionRecorded += OnAutomationDecisionRecorded;
+        _gameplayHotkeyGuard.ImeToggleGestureDetected += OnImeToggleGestureDetected;
 
         ForegroundContext = new ForegroundContextService(
             _foregroundSource,
@@ -915,6 +916,7 @@ public sealed class AppServices : IAsyncDisposable
         ForegroundContext.StateChanged -= OnForegroundContextStateChanged;
         _foregroundSource.ForegroundWindowChanged -= OnRawForegroundChangedForHotkeyGuard;
         _automation.DecisionRecorded -= OnAutomationDecisionRecorded;
+        _gameplayHotkeyGuard.ImeToggleGestureDetected -= OnImeToggleGestureDetected;
         _gameTextEntryHotkeyMonitor.TransitionDetected -= OnGameTextEntryHotkeyTransitionDetected;
         await _initializationTask.ConfigureAwait(false);
         _gameplayHotkeyGuard.SetAutomationEnabled(false);
@@ -1238,6 +1240,35 @@ public sealed class AppServices : IAsyncDisposable
             record.Trigger is InputContextTrigger.GameplayExit or InputContextTrigger.GameTextEntryChanged
                 ? record.Trigger
                 : InputContextTrigger.ManualRefresh);
+    }
+
+    private void OnImeToggleGestureDetected(ImeToggleGesture gesture)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = CaptureManualInputSwitchAsync(gesture);
+    }
+
+    private async Task CaptureManualInputSwitchAsync(ImeToggleGesture gesture)
+    {
+        try
+        {
+            await _automation
+                .CaptureManualInputSwitchAsync($"toggle-{gesture}")
+                .ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+                $"stage=manual-switch-capture-failed type={ex.GetType().Name}");
+        }
     }
 
     private void OnForegroundContextStateChanged(CurrentStateSnapshot snapshot)

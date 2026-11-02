@@ -43,10 +43,10 @@ public sealed record ManualOverrideEvaluation(
 /// after a bounded interval. Leaving that foreground window clears it immediately,
 /// so re-entering an application restores normal rule behavior.
 ///
-/// P8A deliberately exposes registration as an explicit hook instead of guessing
-/// from arbitrary keyboard state. Later input-language observers/tray actions can
-/// report a verified user override without teaching the coordinator provider-
-/// specific hotkeys.
+/// Registration stays an explicit hook instead of guessing from arbitrary state
+/// differences: an application restoring a per-control input context on focus
+/// must still be corrected by the rule. The coordinator registers an override only
+/// after a recognized IME toggle gesture, verified by reading the resulting mode.
 /// </summary>
 public sealed class ManualOverrideGuard
 {
@@ -83,6 +83,37 @@ public sealed class ManualOverrideGuard
         TimeSpan? duration = null)
     {
         ArgumentNullException.ThrowIfNull(context);
+        return Register(context.Window, context.Application.Key, mode, source, duration);
+    }
+
+    /// <summary>
+    /// Registers an override observed directly on a top-level window, for example
+    /// after the user toggled the IME with its own hotkey. Pass
+    /// <see cref="Timeout.InfiniteTimeSpan"/> to keep the override until the
+    /// foreground window changes.
+    /// </summary>
+    public ManualOverrideSnapshot Register(
+        WindowContext window,
+        InputMode mode,
+        string source,
+        TimeSpan? duration = null)
+    {
+        ArgumentNullException.ThrowIfNull(window);
+        return Register(
+            window,
+            ApplicationIdentity.FromWindow(window).Key,
+            mode,
+            source,
+            duration);
+    }
+
+    private ManualOverrideSnapshot Register(
+        WindowContext window,
+        string applicationKey,
+        InputMode mode,
+        string source,
+        TimeSpan? duration)
+    {
         if (mode is not (InputMode.Chinese or InputMode.English))
         {
             throw new ArgumentException(
@@ -98,7 +129,8 @@ public sealed class ManualOverrideGuard
         }
 
         var effectiveDuration = duration ?? _options.DefaultDuration;
-        if (effectiveDuration <= TimeSpan.Zero)
+        var untilForegroundChanges = effectiveDuration == Timeout.InfiniteTimeSpan;
+        if (!untilForegroundChanges && effectiveDuration <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(
                 nameof(duration),
@@ -107,13 +139,13 @@ public sealed class ManualOverrideGuard
 
         var now = _timeProvider.GetUtcNow();
         var snapshot = new ManualOverrideSnapshot(
-            context.Application.Key,
-            context.Window.ProcessId,
-            context.Window.Hwnd,
+            applicationKey,
+            window.ProcessId,
+            window.Hwnd,
             mode,
             source.Trim(),
             now,
-            now + effectiveDuration);
+            untilForegroundChanges ? DateTimeOffset.MaxValue : now + effectiveDuration);
 
         lock (_sync)
         {

@@ -61,6 +61,7 @@ public sealed class GameplayHotkeyGuard : IDisposable
     // low-level hook callbacks run before the asynchronous key state is updated.
     private GameplayModifierState _modifiers;
     private readonly HashSet<uint> _suppressedKeyUps = new();
+    private readonly ImeToggleGestureTracker _toggleGestures = new();
 
     private long _suppressedCount;
     private GameplayHotkeyChord _lastSuppressedChord;
@@ -91,6 +92,13 @@ public sealed class GameplayHotkeyGuard : IDisposable
             Name = "FlowIME.GameplayHotkeyGuard"
         };
     }
+
+    /// <summary>
+    /// Raised on a thread-pool thread when the user presses an IME Chinese/English
+    /// toggle gesture outside Gameplay while automation is enabled. Suppressed
+    /// chords are never reported because the IME did not receive them.
+    /// </summary>
+    public event Action<ImeToggleGesture>? ImeToggleGestureDetected;
 
     public void Start()
     {
@@ -300,11 +308,13 @@ public sealed class GameplayHotkeyGuard : IDisposable
             return 1;
         }
 
+        var runtime = Volatile.Read(ref _runtime);
+        var gesture = _toggleGestures.OnKey(virtualKey, isDown, _modifiers);
+
         if (isDown)
         {
             UpdateModifierState(virtualKey, isDown: true);
 
-            var runtime = Volatile.Read(ref _runtime);
             if (runtime.Armed)
             {
                 var chord = GameplayHotkeyChordMatcher.MatchKeyDown(
@@ -324,7 +334,41 @@ public sealed class GameplayHotkeyGuard : IDisposable
             UpdateModifierState(virtualKey, isDown: false);
         }
 
+        if (gesture != ImeToggleGesture.None && runtime.ShouldReportToggleGestures)
+        {
+            RaiseToggleGesture(gesture);
+        }
+
         return User32Native.CallNextHookEx(_hook, nCode, wParam, lParam);
+    }
+
+    private void RaiseToggleGesture(ImeToggleGesture gesture)
+    {
+        var handler = ImeToggleGestureDetected;
+        if (handler is null)
+        {
+            return;
+        }
+
+        // Never run observers on the hook thread: Windows silently removes a
+        // low-level hook whose callback exceeds LowLevelHooksTimeout.
+        ThreadPool.QueueUserWorkItem(
+            static state =>
+            {
+                var (callback, detected) = state;
+                try
+                {
+                    callback(detected);
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Trace.WriteLine(
+                        $"[FlowIME.GameplayHotkey] utc={DateTimeOffset.UtcNow:O} " +
+                        $"stage=toggle-gesture-observer-failed type={ex.GetType().Name}");
+                }
+            },
+            (handler, gesture),
+            preferLocal: false);
     }
 
     private void UpdateModifierState(uint virtualKey, bool isDown)
@@ -376,6 +420,10 @@ public sealed class GameplayHotkeyGuard : IDisposable
             AutomationEnabled,
             GameContext,
             GameTextEntry);
+
+        // Games use Shift heavily (sprint, crouch); a lone Shift there is not an
+        // IME toggle and must not veto game text-entry policies.
+        internal bool ShouldReportToggleGestures => AutomationEnabled && !GameContext;
     }
 }
 
