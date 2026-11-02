@@ -17,15 +17,23 @@ internal sealed class TrayIconService : IDisposable
     private const uint WmRButtonUp = 0x0205;
     private const uint WmApp = 0x8000;
     private const uint CallbackMessage = WmApp + 0x31;
+    private const uint ShowNotificationMessage = WmApp + 0x32;
 
     private const uint NimAdd = 0x00000000;
+    private const uint NimModify = 0x00000001;
     private const uint NimDelete = 0x00000002;
     private const uint NimSetFocus = 0x00000003;
     private const uint NifMessage = 0x00000001;
     private const uint NifIcon = 0x00000002;
     private const uint NifTip = 0x00000004;
+    private const uint NifInfo = 0x00000010;
+    private const uint NifRealtime = 0x00000040;
+    private const uint NiifNoSound = 0x00000010;
+    private const uint NiifRespectQuietTime = 0x00000080;
 
     private const uint MfString = 0x00000000;
+    private const uint MfGrayed = 0x00000001;
+    private const uint MfChecked = 0x00000008;
     private const uint MfSeparator = 0x00000800;
     private const uint TpmRightButton = 0x0002;
     private const uint TpmReturnCmd = 0x0100;
@@ -44,6 +52,10 @@ internal sealed class TrayIconService : IDisposable
     private readonly Action _toggleAutomationRequested;
     private readonly Action<string> _systemRecoveryRequested;
     private readonly Action _exitRequested;
+    private readonly Func<IReadOnlyList<TrayMenuEntry>> _quickRuleEntries;
+    private readonly Action<QuickRuleChoice> _quickRuleRequested;
+    private readonly object _notificationSync = new();
+    private (string Title, string Message)? _pendingNotification;
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _started = new(false);
     private readonly string _windowClassName;
@@ -60,7 +72,9 @@ internal sealed class TrayIconService : IDisposable
         Func<bool> isAutomationEnabled,
         Action toggleAutomationRequested,
         Action<string> systemRecoveryRequested,
-        Action exitRequested)
+        Action exitRequested,
+        Func<IReadOnlyList<TrayMenuEntry>>? quickRuleEntries = null,
+        Action<QuickRuleChoice>? quickRuleRequested = null)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -76,6 +90,8 @@ internal sealed class TrayIconService : IDisposable
         _systemRecoveryRequested = systemRecoveryRequested ??
             throw new ArgumentNullException(nameof(systemRecoveryRequested));
         _exitRequested = exitRequested ?? throw new ArgumentNullException(nameof(exitRequested));
+        _quickRuleEntries = quickRuleEntries ?? (static () => []);
+        _quickRuleRequested = quickRuleRequested ?? (static _ => { });
         _windowClassName = $"FlowIME.Tray.{Environment.ProcessId}";
 
         _thread = new Thread(ThreadMain)
@@ -248,6 +264,12 @@ internal sealed class TrayIconService : IDisposable
             return message == SystemRecoverySignal.WmPowerBroadcast ? 1 : 0;
         }
 
+        if (message == ShowNotificationMessage)
+        {
+            ShowPendingNotification();
+            return 0;
+        }
+
         if (message == CallbackMessage)
         {
             var mouseMessage = unchecked((uint)lParam.ToInt64());
@@ -297,6 +319,20 @@ internal sealed class TrayIconService : IDisposable
 
         try
         {
+            var quickRules = GetQuickRuleEntries();
+            foreach (var entry in quickRules)
+            {
+                var flags = MfString |
+                    (entry.IsEnabled ? 0 : MfGrayed) |
+                    (entry.IsChecked ? MfChecked : 0);
+                _ = AppendMenuW(menu, flags, entry.CommandId, entry.Label);
+            }
+
+            if (quickRules.Count > 0)
+            {
+                _ = AppendMenuW(menu, MfSeparator, 0, null);
+            }
+
             _ = AppendMenuW(menu, MfString, OpenCommand, "打开 FlowIME");
             _ = AppendMenuW(
                 menu,
@@ -332,6 +368,13 @@ internal sealed class TrayIconService : IDisposable
                 case ExitCommand:
                     SafeInvoke(_exitRequested);
                     break;
+                default:
+                    if (quickRules.FirstOrDefault(entry => entry.CommandId == selected)?.Choice is { } choice)
+                    {
+                        SafeInvoke(() => _quickRuleRequested(choice));
+                    }
+
+                    break;
             }
 
             // Required by the notification-area context-menu guidance so a
@@ -345,6 +388,62 @@ internal sealed class TrayIconService : IDisposable
             _ = DestroyMenu(menu);
         }
     }
+
+    private IReadOnlyList<TrayMenuEntry> GetQuickRuleEntries()
+    {
+        try
+        {
+            return _quickRuleEntries();
+        }
+        catch
+        {
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Shows a quiet, transient notification from the tray icon. Safe to call
+    /// from any thread; the latest request wins.
+    /// </summary>
+    internal void ShowNotification(string title, string message)
+    {
+        if (_disposed || _window == 0)
+        {
+            return;
+        }
+
+        lock (_notificationSync)
+        {
+            _pendingNotification = (title, message);
+        }
+
+        _ = PostMessageW(_window, ShowNotificationMessage, 0, 0);
+    }
+
+    private void ShowPendingNotification()
+    {
+        (string Title, string Message)? notification;
+        lock (_notificationSync)
+        {
+            notification = _pendingNotification;
+            _pendingNotification = null;
+        }
+
+        if (notification is not { } value)
+        {
+            return;
+        }
+
+        var data = CreateIconData();
+        data.UFlags = NifInfo | NifRealtime;
+        data.SzInfoTitle = Truncate(value.Title, 63);
+        data.SzInfo = Truncate(value.Message, 255);
+        data.DwInfoFlags = NiifNoSound | NiifRespectQuietTime;
+        _ = Shell_NotifyIconW(NimModify, ref data);
+    }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength];
 
     private string GetAutomationToggleLabel()
     {

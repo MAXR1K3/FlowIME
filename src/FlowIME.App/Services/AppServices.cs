@@ -32,6 +32,7 @@ public sealed class AppServices : IAsyncDisposable
     private readonly JsonAppSettingsRepository _settingsRepository;
     private readonly JsonGameTextEntryProfileRepository _gameTextEntryProfileRepository;
     private readonly InputMethodProviderRegistry _inputMethodProviders;
+    private readonly QuickRuleService _quickRules;
     private readonly GameplayEligibilityDetector _gameplayEligibilityDetector;
     private readonly GameTextEntryRuntimeState _gameTextEntryRuntimeState = new();
     private readonly GameTextEntryProfileRegistry _gameTextEntryProfiles = new();
@@ -133,6 +134,11 @@ public sealed class AppServices : IAsyncDisposable
             decisionEngine,
             RuleRepository,
             backend);
+        QuickRuleTargets = new QuickRuleTargetTracker(QuickRuleTargetTracker.ResolveDisplayName);
+        _quickRules = new QuickRuleService(
+            RuleRepository,
+            _inputMethodProviders.Descriptors,
+            () => DefaultInputMethodProviderId);
         ForegroundContext.StateChanged += OnForegroundContextStateChanged;
     }
 
@@ -141,6 +147,8 @@ public sealed class AppServices : IAsyncDisposable
     public IRunningApplicationCatalog RunningApplications { get; }
 
     public ForegroundContextService ForegroundContext { get; }
+
+    internal QuickRuleTargetTracker QuickRuleTargets { get; }
 
     public StartupRegistrationService StartupRegistration { get; }
 
@@ -244,6 +252,39 @@ public sealed class AppServices : IAsyncDisposable
         finally
         {
             _automationStateGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Applies a tray quick-rule choice to the last application the user worked in.
+    /// Returns the notification to show, or null when there is no target.
+    /// </summary>
+    internal async ValueTask<QuickRuleResult?> ApplyQuickRuleAsync(QuickRuleChoice choice)
+    {
+        if (_disposed || QuickRuleTargets.Current is not { } target)
+        {
+            return null;
+        }
+
+        try
+        {
+            var result = await _quickRules.ApplyAsync(target, choice);
+            QuickRuleTargets.UpdateRule(target, result.Rule);
+            await RefreshAfterRuleChangeAsync();
+            Trace.WriteLine(
+                $"[FlowIME.UI] utc={DateTimeOffset.UtcNow:O} stage=quick-rule-applied " +
+                $"process={target.Window.ProcessName} choice={choice}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.UI] utc={DateTimeOffset.UtcNow:O} stage=quick-rule-failed " +
+                $"process={target.Window.ProcessName} choice={choice} type={ex.GetType().Name}");
+            return new QuickRuleResult(
+                "无法保存规则",
+                "请重试。若仍失败，可在设置的高级选项中复制诊断信息。",
+                null);
         }
     }
 
@@ -1278,6 +1319,8 @@ public sealed class AppServices : IAsyncDisposable
         {
             return;
         }
+
+        QuickRuleTargets.Observe(snapshot);
 
         try
         {

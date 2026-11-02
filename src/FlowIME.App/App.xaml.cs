@@ -90,7 +90,12 @@ public partial class App : Application
                 {
                     _services?.RequestSystemRecovery(reason);
                 }),
-                exitRequested: () => _dispatcherQueue?.TryEnqueue(RequestExit));
+                exitRequested: () => _dispatcherQueue?.TryEnqueue(RequestExit),
+                quickRuleEntries: () => TrayQuickRuleMenu.Build(_services?.QuickRuleTargets.Current),
+                quickRuleRequested: choice => _dispatcherQueue?.TryEnqueue(() =>
+                {
+                    _ = ApplyQuickRuleAsync(choice);
+                }));
         }
         catch (Exception ex)
         {
@@ -98,6 +103,20 @@ public partial class App : Application
                 $"[FlowIME.Lifecycle] stage=tray-init result=failed " +
                 $"error={ex.GetType().Name}:{ex.Message}");
             return null;
+        }
+    }
+
+    private async Task ApplyQuickRuleAsync(QuickRuleChoice choice)
+    {
+        if (_services is null || Volatile.Read(ref _shutdownStarted) != 0)
+        {
+            return;
+        }
+
+        var result = await _services.ApplyQuickRuleAsync(choice);
+        if (result is not null)
+        {
+            _trayIcon?.ShowNotification(result.Title, result.Message);
         }
     }
 
