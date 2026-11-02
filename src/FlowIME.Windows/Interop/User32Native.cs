@@ -6,6 +6,8 @@ internal static class User32Native
 {
     internal const uint EventSystemForeground = 0x0003;
     internal const uint EventObjectFocus = 0x8005;
+    internal const uint EventObjectShow = 0x8002;
+    internal const int ObjIdCaret = -8;
     internal const uint WineventOutOfContext = 0x0000;
     internal const uint WineventSkipOwnProcess = 0x0002;
     internal const uint WmQuit = 0x0012;

@@ -121,7 +121,8 @@ public sealed class AppServices : IAsyncDisposable
             contextEngine: contextEngine,
             decisionEngine: decisionEngine,
             manualOverrideGuard: manualOverrideGuard,
-            decisionJournal: decisionJournal);
+            decisionJournal: decisionJournal,
+            textEntryProbe: new UiAutomationTextEntryProbe());
         _automation.DecisionRecorded += OnAutomationDecisionRecorded;
         _gameplayHotkeyGuard.ImeToggleGestureDetected += OnImeToggleGestureDetected;
 

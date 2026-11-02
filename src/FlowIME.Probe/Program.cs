@@ -32,6 +32,7 @@ internal static class Program
             return command switch
             {
                 "watch" => await WatchCommand.RunAsync(cancellation.Token),
+                "text-entry-watch" => await TextEntryWatchCommand.RunAsync(cancellation.Token),
                 "inspect" => await InspectCommand.RunAsync(commandArgs, cancellation.Token),
                 "set" => await SetModeCommand.RunAsync(commandArgs, cancellation.Token),
                 "set-conversion" => await SetConversionModeCommand.RunAsync(commandArgs, cancellation.Token),

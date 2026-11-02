@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="../FlowIME.Core/FlowIME.Core.csproj" />
     <ProjectReference Include="../FlowIME.Windows/FlowIME.Windows.csproj" />
+    <FrameworkReference Include="Microsoft.WindowsDesktop.App.WPF" />
   </ItemGroup>
 </Project>

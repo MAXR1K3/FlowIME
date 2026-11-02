@@ -9,7 +9,9 @@ public enum AutomationDecisionOutcome
     NoAction,
     SuppressedByManualOverride,
     Applied,
-    ApplyFailed
+    ApplyFailed,
+    AwaitingTextEntry,
+    SkippedInaccessible
 }
 
 /// <summary>

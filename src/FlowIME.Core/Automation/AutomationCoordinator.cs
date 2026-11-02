@@ -23,6 +23,8 @@ public sealed class AutomationCoordinator : IAsyncDisposable
     private readonly object _sync = new();
     private readonly IForegroundWindowSource _foregroundSource;
     private readonly IInputFocusSource? _focusSource;
+    private readonly ITextEntrySignalSource? _caretSource;
+    private readonly ITextEntryProbe? _textEntryProbe;
     private readonly IWindowResolver _windowResolver;
     private readonly IRuleEngine _ruleEngine;
     private readonly IRuleRepository _ruleRepository;
@@ -34,8 +36,10 @@ public sealed class AutomationCoordinator : IAsyncDisposable
     private readonly AutomationOptions _options;
     private readonly IAutomationDelay _delay;
     private readonly uint _ignoredProcessId;
+    private readonly Dictionary<uint, string> _inaccessibleProcesses = [];
 
     private Operation? _currentOperation;
+    private nint _awaitingTextEntryHwnd;
     private long _generation;
     private bool _executionEnabled = true;
     private bool _started;
@@ -54,11 +58,14 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         IInputContextEngine? contextEngine = null,
         IInputDecisionEngine? decisionEngine = null,
         ManualOverrideGuard? manualOverrideGuard = null,
-        AutomationDecisionJournal? decisionJournal = null)
+        AutomationDecisionJournal? decisionJournal = null,
+        ITextEntryProbe? textEntryProbe = null)
     {
         _foregroundSource = foregroundSource ??
             throw new ArgumentNullException(nameof(foregroundSource));
         _focusSource = inputFocusSource ?? foregroundSource as IInputFocusSource;
+        _caretSource = foregroundSource as ITextEntrySignalSource;
+        _textEntryProbe = textEntryProbe;
         _windowResolver = windowResolver ??
             throw new ArgumentNullException(nameof(windowResolver));
         _ruleEngine = ruleEngine ??
@@ -222,6 +229,11 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 _focusSource.InputFocusChanged += OnInputFocusChanged;
             }
 
+            if (_caretSource is not null)
+            {
+                _caretSource.CaretShown += OnCaretShown;
+            }
+
             _started = true;
         }
     }
@@ -241,6 +253,11 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             if (_focusSource is not null)
             {
                 _focusSource.InputFocusChanged -= OnInputFocusChanged;
+            }
+
+            if (_caretSource is not null)
+            {
+                _caretSource.CaretShown -= OnCaretShown;
             }
 
             _started = false;
@@ -419,6 +436,11 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         }
 
         _manualOverrideGuard.NotifyForegroundChanged(args.Hwnd);
+        lock (_sync)
+        {
+            _awaitingTextEntryHwnd = 0;
+        }
+
         RequestReapply(
             InputContextTrigger.ForegroundChanged,
             args.Hwnd,
@@ -457,6 +479,42 @@ public sealed class AutomationCoordinator : IAsyncDisposable
 
         RequestReapply(
             InputContextTrigger.FocusChanged,
+            foreground,
+            args.Hwnd,
+            args.Timestamp,
+            args.ObjectId,
+            args.ChildId);
+    }
+
+    /// <summary>
+    /// A caret only matters while the foreground window is waiting for the user
+    /// to enter a text box. Otherwise caret churn (typing, clicking around a
+    /// document) would re-run rules that already succeeded.
+    /// </summary>
+    private void OnCaretShown(
+        object? sender,
+        InputFocusChangedEventArgs args)
+    {
+        nint foreground;
+        try
+        {
+            foreground = _foregroundSource.GetCurrentForegroundWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            if (foreground == 0 || foreground != _awaitingTextEntryHwnd)
+            {
+                return;
+            }
+        }
+
+        RequestReapply(
+            InputContextTrigger.TextEntryStarted,
             foreground,
             args.Hwnd,
             args.Timestamp,
@@ -712,6 +770,24 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 return;
             }
 
+            if (IsKnownInaccessible(window))
+            {
+                RecordDecision(
+                    generation,
+                    context,
+                    decision,
+                    AutomationDecisionOutcome.SkippedInaccessible,
+                    InaccessibleErrorCode);
+                TraceLine(
+                    generation,
+                    trigger,
+                    "inaccessible-cached",
+                    foregroundHwnd,
+                    attempt,
+                    $"process={window.ProcessName} pid={window.ProcessId} action={decision.Action}");
+                return;
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             if (!IsCurrentGeneration(generation) ||
                 _foregroundSource.GetCurrentForegroundWindow() != foregroundHwnd)
@@ -724,20 +800,33 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 .ApplyAsync(window, providerId, decision.Action, cancellationToken)
                 .ConfigureAwait(false);
 
+            // A failure while focus sits on a list, button or read-only page is
+            // expected: many apps (Qt, Chromium) only attach an input context to
+            // real text boxes. Wait for the user to enter one instead of retrying
+            // and reporting a failure.
+            var awaitingTextEntry = !result.Success &&
+                IsRetryableApplyFailure(result.ErrorCode) &&
+                ProbeTextEntry(window) == TextEntryPresence.Absent;
+            UpdateTextEntryState(window, foregroundHwnd, result, awaitingTextEntry);
+
             RecordDecision(
                 generation,
                 context,
                 decision,
                 result.Success
                     ? AutomationDecisionOutcome.Applied
-                    : AutomationDecisionOutcome.ApplyFailed,
+                    : awaitingTextEntry
+                        ? AutomationDecisionOutcome.AwaitingTextEntry
+                        : AutomationDecisionOutcome.ApplyFailed,
                 result.ErrorCode,
                 result);
 
             TraceLine(
                 generation,
                 trigger,
-                result.Success ? "applied" : "apply-failed",
+                result.Success
+                    ? "applied"
+                    : awaitingTextEntry ? "awaiting-text-entry" : "apply-failed",
                 foregroundHwnd,
                 attempt,
                 $"process={window.ProcessName} pid={window.ProcessId} " +
@@ -753,7 +842,7 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 $"durationMs={result.Duration.TotalMilliseconds:F1} " +
                 $"error={SanitizeTraceValue(result.ErrorCode)}");
 
-            if (result.Success)
+            if (result.Success || awaitingTextEntry)
             {
                 return;
             }
@@ -768,6 +857,67 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             {
                 return;
             }
+        }
+    }
+
+    private TextEntryPresence ProbeTextEntry(WindowContext window)
+    {
+        if (_textEntryProbe is null)
+        {
+            return TextEntryPresence.Unknown;
+        }
+
+        try
+        {
+            return _textEntryProbe.Probe(window);
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+                $"stage=text-entry-probe-failed type={ex.GetType().Name}");
+            return TextEntryPresence.Unknown;
+        }
+    }
+
+    private void UpdateTextEntryState(
+        WindowContext window,
+        nint foregroundHwnd,
+        InputOperationResult result,
+        bool awaitingTextEntry)
+    {
+        lock (_sync)
+        {
+            if (awaitingTextEntry)
+            {
+                _awaitingTextEntryHwnd = foregroundHwnd;
+            }
+            else if (_awaitingTextEntryHwnd == foregroundHwnd)
+            {
+                _awaitingTextEntryHwnd = 0;
+            }
+
+            // Access is denied for the lifetime of a process (typically an elevated
+            // one), so stop calling into it and logging the same failure per visit.
+            if (result.ErrorCode == InaccessibleErrorCode)
+            {
+                if (_inaccessibleProcesses.Count >= MaxInaccessibleProcesses)
+                {
+                    _inaccessibleProcesses.Clear();
+                }
+
+                _inaccessibleProcesses[window.ProcessId] = window.ProcessName;
+            }
+        }
+    }
+
+    private bool IsKnownInaccessible(WindowContext window)
+    {
+        lock (_sync)
+        {
+            // Compare the name too so a reused PID does not inherit the verdict.
+            return _inaccessibleProcesses.TryGetValue(window.ProcessId, out var name) &&
+                string.Equals(name, window.ProcessName, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -885,10 +1035,13 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             ? "none"
             : value.Replace('\r', ' ').Replace('\n', ' ').Replace(' ', '_');
 
+    private const string InaccessibleErrorCode = "input-context-inaccessible";
+    private const int MaxInaccessibleProcesses = 64;
+
     private static bool IsRetryableApplyFailure(string? errorCode) =>
         errorCode is not (
             "input-context-unavailable" or
-            "input-context-inaccessible" or
+            InaccessibleErrorCode or
             "provider-not-found");
 
 
