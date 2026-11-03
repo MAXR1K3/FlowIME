@@ -13,6 +13,7 @@ public sealed partial class MainWindow : Window
 {
     private readonly nint _hwnd;
     private readonly AppWindow _appWindow;
+    private readonly DispatcherTimer _toastTimer = new() { Interval = TimeSpan.FromSeconds(4) };
     private bool _allowClose;
     private bool _enforcingWindowSize;
     private string? _currentNavigationTag;
@@ -42,6 +43,7 @@ public sealed partial class MainWindow : Window
             presenter.IsResizable = true;
         }
         ApplyInitialWindowBounds(windowId);
+        _toastTimer.Tick += (_, _) => ToastBar.IsOpen = false;
 
         HomeNavItem.IsSelected = true;
         NavigateTo("home");
@@ -109,6 +111,30 @@ public sealed partial class MainWindow : Window
 
     internal void HideToTray() =>
         _appWindow.Hide();
+
+    /// <summary>
+    /// Shows page feedback in a floating bar that does not move page content.
+    /// Errors stay until dismissed; everything else closes on its own.
+    /// </summary>
+    internal void ShowToast(InfoBarSeverity severity, string title, string message)
+    {
+        _toastTimer.Stop();
+        ToastBar.Severity = severity;
+        ToastBar.Title = title;
+        ToastBar.Message = message;
+        ToastHost.Visibility = Visibility.Visible;
+        ToastBar.IsOpen = true;
+        if (severity != InfoBarSeverity.Error)
+        {
+            _toastTimer.Start();
+        }
+    }
+
+    private void ToastBar_Closed(InfoBar sender, InfoBarClosedEventArgs args)
+    {
+        _toastTimer.Stop();
+        ToastHost.Visibility = Visibility.Collapsed;
+    }
 
     internal void NavigateToSection(string tag)
     {

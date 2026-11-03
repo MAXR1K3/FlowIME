@@ -68,10 +68,34 @@
                 </NavigationViewItem>
             </NavigationView.FooterMenuItems>
 
-            <Frame
-                x:Name="ContentFrame"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch" />
+            <Grid>
+                <Frame
+                    x:Name="ContentFrame"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch" />
+
+                <!-- Feedback floats above the page so it never shifts the control the user just used. -->
+                <Border
+                    x:Name="ToastHost"
+                    Visibility="Collapsed"
+                    MaxWidth="560"
+                    Margin="24,0,24,24"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Bottom"
+                    CornerRadius="{ThemeResource OverlayCornerRadius}"
+                    Background="{ThemeResource SolidBackgroundFillColorBaseBrush}"
+                    Translation="0,0,32">
+                    <Border.Shadow>
+                        <ThemeShadow />
+                    </Border.Shadow>
+                    <InfoBar
+                        x:Name="ToastBar"
+                        IsOpen="False"
+                        IsClosable="True"
+                        Closed="ToastBar_Closed"
+                        AutomationProperties.LiveSetting="Polite" />
+                </Border>
+            </Grid>
         </NavigationView>
     </Grid>
 </Window>

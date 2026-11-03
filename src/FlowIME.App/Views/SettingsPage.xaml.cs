@@ -176,7 +176,6 @@ public sealed partial class SettingsPage : Page
         {
             var startup = ((App)Application.Current).Services.StartupRegistration;
             startup.SetEnabled(StartupToggle.IsOn);
-            ShowSettingsFeedback("启动设置已保存", InfoBarSeverity.Success);
             StartupStatusText.Text = StartupToggle.IsOn
                 ? "已启用：下次登录 Windows 后 FlowIME 会直接在后台运行。"
                 : "登录后在后台启动，不弹出主窗口。";
@@ -188,7 +187,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
 
             RefreshStartupState();
-            ShowSettingsFeedback("无法更新开机启动设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法更新开机启动设置，请重试。");
         }
     }
 
@@ -254,7 +253,6 @@ public sealed partial class SettingsPage : Page
         }
 
         _savingInputStatusOverlay = true;
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             var services = ((App)Application.Current).Services;
@@ -277,7 +275,6 @@ public sealed partial class SettingsPage : Page
                 : snapshot.Started
                     ? $"已启用：{DescribeOverlayPosition(savedSettings.Position)}显示中 / EN / US。"
                     : "设置已启用，但状态浮层暂不可用。请重启 FlowIME 后重试。";
-            ShowSettingsFeedback("浮层设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -287,7 +284,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
             InputStatusOverlayStatusText.Text = "无法保存输入状态浮层设置。";
             await RefreshInputStatusOverlayStateAsync();
-            ShowSettingsFeedback("无法保存浮层设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存浮层设置，请重试。");
         }
         finally
         {
@@ -309,14 +306,10 @@ public sealed partial class SettingsPage : Page
         };
 
         AppStateMemoryToggle.IsEnabled = false;
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             var services = ((App)Application.Current).Services;
             await services.SetAppStateMemorySettingsAsync(settings);
-            ShowSettingsFeedback(
-                settings.Enabled ? "已开启：回到应用时恢复离开前的状态" : "已关闭应用状态记忆",
-                InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -324,7 +317,7 @@ public sealed partial class SettingsPage : Page
                 $"[FlowIME.Automation] stage=app-state-memory-save result=failed " +
                 $"error={ex.GetType().Name}:{ex.Message}");
             await RefreshAppStateMemoryStateAsync();
-            ShowSettingsFeedback("无法保存应用状态记忆设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存应用状态记忆设置，请重试。");
         }
         finally
         {
@@ -367,14 +360,12 @@ public sealed partial class SettingsPage : Page
         };
 
         GameplayKeyboardBaselineToggle.IsEnabled = false;
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             var services = ((App)Application.Current).Services;
             await services.SetGameplayKeyboardBaselineSettingsAsync(settings);
             UpdateGameplayKeyboardBaselineStatus(
                 services.GetGameplayKeyboardBaselineSnapshot());
-            ShowSettingsFeedback("游戏键盘设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -383,7 +374,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
             GameplayKeyboardBaselineStatusText.Text = "无法保存游戏美式键盘设置。";
             await RefreshGameplayKeyboardBaselineStateAsync();
-            ShowSettingsFeedback("无法保存游戏键盘设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存游戏键盘设置，请重试。");
         }
         finally
         {
@@ -410,7 +401,6 @@ public sealed partial class SettingsPage : Page
         _savingHotkeys = true;
         GameplayHotkeyGuardToggle.IsEnabled = false;
         UpdateGameplayHotkeySubControls();
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             await ((App)Application.Current)
@@ -419,7 +409,6 @@ public sealed partial class SettingsPage : Page
             GameplayHotkeyStatusText.Text = settings.Enabled
                 ? "已启用：仅在检测到游戏场景时生效；离开游戏会立即恢复快捷键。"
                 : "已关闭：FlowIME 不会拦截游戏中的输入法快捷键。";
-            ShowSettingsFeedback("快捷键保护设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -428,7 +417,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
             GameplayHotkeyStatusText.Text = "无法保存游戏快捷键保护设置。";
             await RefreshGameplayHotkeyGuardStateAsync();
-            ShowSettingsFeedback("无法保存快捷键设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存快捷键设置，请重试。");
         }
         finally
         {
@@ -675,16 +664,10 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private void SettingsFeedbackBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
-        SettingsFeedbackBar.Visibility = Visibility.Collapsed;
-
-    private void ShowSettingsFeedback(string message, InfoBarSeverity severity)
-    {
-        SettingsFeedbackBar.Visibility = Visibility.Visible;
-        SettingsFeedbackBar.Severity = severity;
-        SettingsFeedbackBar.Message = message;
-        SettingsFeedbackBar.IsOpen = true;
-    }
+    // Settings save on change and each switch shows its own state, so only
+    // failures are announced.
+    private static void ShowSettingsError(string message) =>
+        ((App)Application.Current).MainWindow?.ShowToast(InfoBarSeverity.Error, "保存失败", message);
 
     private static string SanitizeTraceValue(string? value) =>
         string.IsNullOrWhiteSpace(value)

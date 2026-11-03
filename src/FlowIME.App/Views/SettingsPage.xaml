@@ -24,11 +24,6 @@
                         <Setter Target="StartupToggle.Margin" Value="0,10,0,0" />
                         <Setter Target="StartupToggle.HorizontalAlignment" Value="Left" />
 
-                        <Setter Target="TrayToggle.(Grid.Row)" Value="1" />
-                        <Setter Target="TrayToggle.(Grid.Column)" Value="0" />
-                        <Setter Target="TrayToggle.Margin" Value="0,10,0,0" />
-                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Left" />
-
                         <Setter Target="InputStatusOverlayToggle.(Grid.Row)" Value="1" />
                         <Setter Target="InputStatusOverlayToggle.(Grid.Column)" Value="0" />
                         <Setter Target="InputStatusOverlayToggle.Margin" Value="0,10,0,0" />
@@ -82,11 +77,6 @@
                         <Setter Target="StartupToggle.(Grid.Column)" Value="1" />
                         <Setter Target="StartupToggle.Margin" Value="0" />
                         <Setter Target="StartupToggle.HorizontalAlignment" Value="Right" />
-
-                        <Setter Target="TrayToggle.(Grid.Row)" Value="0" />
-                        <Setter Target="TrayToggle.(Grid.Column)" Value="1" />
-                        <Setter Target="TrayToggle.Margin" Value="0" />
-                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Right" />
 
                         <Setter Target="InputStatusOverlayToggle.(Grid.Row)" Value="0" />
                         <Setter Target="InputStatusOverlayToggle.(Grid.Column)" Value="1" />
@@ -161,7 +151,7 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowPageContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Left">
+        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowPageContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Stretch">
             <StackPanel Spacing="5">
                 <TextBlock x:Name="PageTitle" Text="设置" Style="{StaticResource FlowPageTitleStyle}" />
                 <TextBlock
@@ -170,9 +160,6 @@
                     Style="{StaticResource FlowPageSubtitleStyle}" />
             </StackPanel>
 
-            <InfoBar x:Name="SettingsFeedbackBar" IsOpen="False" Visibility="Collapsed"
-                IsClosable="True" Closed="SettingsFeedbackBar_Closed"
-                AutomationProperties.LiveSetting="Polite" />
 
             <StackPanel x:Name="GeneralSection" Spacing="10">
                 <TextBlock Text="常规" Style="{StaticResource FlowSectionTitleStyle}" />
@@ -230,30 +217,22 @@
 
                         <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
-                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
+                        <!-- Always-on behavior: stated as a fact, not shown as a locked switch. -->
+                        <Grid Padding="18" ColumnSpacing="12">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
                             </Grid.ColumnDefinitions>
-                            <StackPanel Spacing="3" VerticalAlignment="Center">
-                                <TextBlock Text="关闭窗口后继续运行" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                <TextBlock
-                                    Text="关闭主窗口会隐藏到系统托盘；只有从托盘菜单选择“退出”才结束 FlowIME。"
-                                    Style="{StaticResource FlowMutedTextStyle}" />
-                            </StackPanel>
-                            <ToggleSwitch
-                                x:Name="TrayToggle"
-                        Style="{StaticResource FlowToggleSwitchStyle}"
-                        AutomationProperties.Name="关闭窗口后继续运行"
+                            <FontIcon
+                                Glyph="&#xE946;"
+                                FontSize="16"
+                                Margin="0,2,0,0"
+                                VerticalAlignment="Top"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock
                                 Grid.Column="1"
-                                VerticalAlignment="Center"
-                                HorizontalAlignment="Right"
-                                IsOn="True"
-                                IsEnabled="False" />
+                                Text="关闭主窗口后 FlowIME 会继续在系统托盘运行；从托盘菜单选择“退出”才会结束。"
+                                Style="{StaticResource FlowMutedTextStyle}" />
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -578,7 +557,6 @@
                     <AutoSuggestBox
                         x:Name="GameLibrarySearchBox"
                         MinWidth="260"
-                        MaxWidth="520"
                         HorizontalAlignment="Stretch"
                         VerticalContentAlignment="Center"
                         PlaceholderText="搜索游戏"

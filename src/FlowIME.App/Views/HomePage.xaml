@@ -6,7 +6,7 @@
     Loaded="OnLoaded"
     Unloaded="OnUnloaded">
 
-    <ScrollViewer MaxWidth="{StaticResource FlowPageContentMaxWidth}" HorizontalAlignment="Stretch"
+    <ScrollViewer HorizontalAlignment="Stretch"
         HorizontalScrollBarVisibility="Disabled"
         HorizontalScrollMode="Disabled"
         VerticalScrollBarVisibility="Auto"
@@ -109,6 +109,7 @@
 
         <StackPanel
             x:Name="PageContent"
+            MaxWidth="{StaticResource FlowPageContentMaxWidth}"
 
             Padding="16,20,16,28"
             Spacing="22"
@@ -159,14 +160,6 @@
                         Toggled="AutomationToggle_Toggled" />
                 </Grid>
             </Grid>
-
-            <InfoBar
-                x:Name="HomeFeedbackBar"
-                Visibility="Collapsed"
-                Closed="HomeFeedbackBar_Closed"
-                IsOpen="False"
-                IsClosable="True"
-                Severity="Informational" />
 
             <Border Style="{StaticResource FlowHeroCardStyle}" Padding="24">
                 <Grid x:Name="HeroGrid" RowSpacing="0">

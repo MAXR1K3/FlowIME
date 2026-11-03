@@ -10,7 +10,6 @@ public sealed partial class RulesPage : Page
 {
     private readonly AppServices _services;
     private readonly RulesViewModel _viewModel;
-    private readonly DispatcherTimer _feedbackTimer;
     private readonly ApplicationIconLoader _iconLoader = new();
     private bool _loaded;
 
@@ -24,16 +23,6 @@ public sealed partial class RulesPage : Page
         {
             ApplySearchFilter();
             _ = LoadRuleIconsAsync();
-        };
-
-        _feedbackTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(4)
-        };
-        _feedbackTimer.Tick += (_, _) =>
-        {
-            _feedbackTimer.Stop();
-            RuleFeedbackBar.IsOpen = false;
         };
     }
 
@@ -199,11 +188,8 @@ public sealed partial class RulesPage : Page
                 toggle.IsOn,
                 item.ProviderId);
             await _services.RefreshAfterRuleChangeAsync();
+            // The switch itself shows the new state; only failures need a message.
             ApplySearchFilter();
-            ShowFeedback(
-                InfoBarSeverity.Success,
-                toggle.IsOn ? "规则已启用" : "规则已停用",
-                item.DisplayName);
         }
         catch (Exception ex)
         {
@@ -370,16 +356,8 @@ public sealed partial class RulesPage : Page
         return false;
     }
 
-    private void ShowFeedback(InfoBarSeverity severity, string title, string message)
-    {
-        RuleFeedbackBar.Severity = severity;
-        RuleFeedbackBar.Title = title;
-        RuleFeedbackBar.Message = message;
-        RuleFeedbackBar.IsOpen = true;
-
-        _feedbackTimer.Stop();
-        if (severity == InfoBarSeverity.Success) _feedbackTimer.Start();
-    }
+    private static void ShowFeedback(InfoBarSeverity severity, string title, string message) =>
+        ((App)Application.Current).MainWindow?.ShowToast(severity, title, message);
 
     private void ShowFailure(string title, Exception ex)
     {

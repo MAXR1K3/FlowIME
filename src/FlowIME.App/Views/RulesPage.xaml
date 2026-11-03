@@ -6,7 +6,7 @@
     xmlns:viewModels="using:FlowIME.App.ViewModels"
     Loaded="OnLoaded">
 
-    <ScrollViewer MaxWidth="{StaticResource FlowPageContentMaxWidth}" HorizontalAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalScrollBarVisibility="Auto">
+    <ScrollViewer HorizontalAlignment="Stretch" HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch" VerticalScrollBarVisibility="Auto">
         <VisualStateManager.VisualStateGroups>
             <VisualStateGroup x:Name="PageStructureStates">
                 <VisualState x:Name="CompactPageStructure">
@@ -83,7 +83,7 @@
                 </VisualState>
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
-    <Grid x:Name="PageRoot"  Padding="16,20,16,28" RowSpacing="0" HorizontalAlignment="Stretch">
+    <Grid x:Name="PageRoot" MaxWidth="{StaticResource FlowPageContentMaxWidth}" Padding="16,20,16,28" RowSpacing="0" HorizontalAlignment="Stretch">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -206,12 +206,6 @@
             Severity="Warning"
             Title="规则健康检查"
             Message="{Binding RuleDiagnosticsSummary}" />
-
-        <InfoBar
-            x:Name="RuleFeedbackBar"
-            Grid.Row="3"
-            IsOpen="False"
-            IsClosable="True" />
 
         <Grid Grid.Row="4" Margin="0,24,0,0" ColumnSpacing="12" RowSpacing="4">
             <Grid.RowDefinitions>

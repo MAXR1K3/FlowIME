@@ -60,7 +60,9 @@ public sealed class UiShellContractTests
 
         Assert.Contains("StartupToggle", xaml, StringComparison.Ordinal);
         Assert.Contains("StartupToggle_Toggled", xaml, StringComparison.Ordinal);
-        Assert.Contains("关闭窗口后继续运行", xaml, StringComparison.Ordinal);
+        // Close-to-tray is always on, so it is described rather than shown as a locked switch.
+        Assert.Contains("继续在系统托盘运行", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TrayToggle", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("StartupTask 后启用", xaml, StringComparison.Ordinal);
     }
 
@@ -418,9 +420,10 @@ public sealed class UiShellContractTests
         var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "RulesPage.xaml.cs"));
 
         Assert.Contains("应用规则始终拥有更高优先级", xaml, StringComparison.Ordinal);
-        Assert.Contains("RuleFeedbackBar", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("RuleFeedbackBar", xaml, StringComparison.Ordinal);
         Assert.Contains("NoSearchResultsState", xaml, StringComparison.Ordinal);
         Assert.Contains("ShowFeedback", source, StringComparison.Ordinal);
+        Assert.Contains("ShowToast", source, StringComparison.Ordinal);
         Assert.Contains("ShowFailure", source, StringComparison.Ordinal);
     }
 
@@ -850,7 +853,8 @@ public sealed class UiShellContractTests
         var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "HomePage.xaml.cs"));
         var viewModel = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "ViewModels", "HomeViewModel.cs"));
 
-        Assert.Contains("HomeFeedbackBar", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeFeedbackBar", home, StringComparison.Ordinal);
+        Assert.Contains("ShowToast", source, StringComparison.Ordinal);
         Assert.Contains("当前决策", home, StringComparison.Ordinal);
         Assert.Contains("FlowDecisionRowStyle", home, StringComparison.Ordinal);
         Assert.Contains("FlowDecisionValueStyle", appXaml, StringComparison.Ordinal);
