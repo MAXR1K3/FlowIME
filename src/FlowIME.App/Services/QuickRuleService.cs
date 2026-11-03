@@ -8,7 +8,8 @@ namespace FlowIME.App.Services;
 internal sealed record QuickRuleResult(
     string Title,
     string Message,
-    ApplicationRule? Rule);
+    ApplicationRule? Rule,
+    bool Failed = false);
 
 /// <summary>
 /// Applies a tray quick-rule choice with the same rule semantics as the "add

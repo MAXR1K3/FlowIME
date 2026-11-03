@@ -49,39 +49,100 @@ public sealed class TrayQuickRuleTests
     }
 
     [Fact]
+    public void Menu_opens_with_a_default_open_item_and_ends_with_exit()
+    {
+        var menu = TrayMenu.Build(new TrayMenuState(true, null, null));
+
+        Assert.Equal(TrayCommand.Open, menu[0].Command);
+        Assert.True(menu[0].IsDefault);
+        Assert.Equal(TrayCommand.Exit, menu[^1].Command);
+        Assert.Single(menu, static item => item.IsDefault);
+    }
+
+    [Fact]
     public void Menu_without_target_is_a_disabled_hint()
     {
-        var entry = Assert.Single(TrayQuickRuleMenu.Build(null));
+        var item = QuickRuleItem(TrayMenu.Build(new TrayMenuState(true, null, null)));
 
-        Assert.False(entry.IsEnabled);
-        Assert.Null(entry.Choice);
+        Assert.False(item.IsEnabled);
+        Assert.Null(item.Children);
     }
 
     [Fact]
-    public void Menu_checks_the_current_rule_and_offers_removal()
+    public void Quick_rule_submenu_marks_the_current_rule_and_offers_removal()
     {
-        var entries = TrayQuickRuleMenu.Build(new QuickRuleTarget("微信", WeChat, Rule(InputAction.Chinese)));
+        var item = QuickRuleItem(TrayMenu.Build(
+            new TrayMenuState(true, null, new QuickRuleTarget("微信", WeChat, Rule(InputAction.Chinese)))));
 
-        Assert.Equal("微信 · 当前：中文", entries[0].Label);
-        Assert.False(entries[0].IsEnabled);
+        Assert.Equal("微信\t进入时：中文", item.Label);
         Assert.Equal(
-            [QuickRuleChoice.Chinese],
-            entries.Where(static entry => entry.IsChecked).Select(static entry => entry.Choice!.Value));
-        Assert.Contains(entries, static entry => entry.Choice == QuickRuleChoice.Remove);
+            [TrayCommand.QuickRuleChinese],
+            item.Children!.Where(static child => child.IsChecked).Select(static child => child.Command));
+        Assert.Contains(item.Children!, static child => child.Command == TrayCommand.QuickRuleRemove);
+        Assert.Contains(item.Children!, static child => child.Command == TrayCommand.OpenRules);
     }
 
     [Fact]
-    public void Menu_without_rule_has_no_check_and_no_removal()
+    public void Quick_rule_submenu_without_rule_has_no_mark_and_no_removal()
     {
-        var entries = TrayQuickRuleMenu.Build(new QuickRuleTarget("微信", WeChat, null));
+        var item = QuickRuleItem(TrayMenu.Build(
+            new TrayMenuState(true, null, new QuickRuleTarget("微信", WeChat, null))));
 
-        Assert.Equal("微信 · 未设置规则", entries[0].Label);
-        Assert.DoesNotContain(entries, static entry => entry.IsChecked);
-        Assert.DoesNotContain(entries, static entry => entry.Choice == QuickRuleChoice.Remove);
-        Assert.All(
-            entries.Skip(1),
-            static entry => Assert.Equal(entry.Choice, TrayQuickRuleMenu.ChoiceFor(entry.CommandId)));
+        Assert.Equal("微信\t未设置", item.Label);
+        Assert.DoesNotContain(item.Children!, static child => child.IsChecked);
+        Assert.DoesNotContain(item.Children!, static child => child.Command == TrayCommand.QuickRuleRemove);
+        Assert.Equal(
+            [QuickRuleChoice.Chinese, QuickRuleChoice.English, QuickRuleChoice.Keep],
+            item.Children!.Select(static child => TrayMenu.ChoiceFor(child.Command)).OfType<QuickRuleChoice>());
     }
+
+    [Fact]
+    public void Long_application_names_are_shortened_and_ampersands_are_not_mnemonics()
+    {
+        var item = QuickRuleItem(TrayMenu.Build(new TrayMenuState(
+            true,
+            null,
+            new QuickRuleTarget("Tom & Jerry Extremely Long Application Name", WeChat, null))));
+
+        var name = item.Label.Split('\t')[0];
+        Assert.StartsWith("Tom && Jerry", name, StringComparison.Ordinal);
+        Assert.EndsWith("…", name, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Running_automation_offers_timed_pauses()
+    {
+        var pause = TrayMenu.Build(new TrayMenuState(true, null, null))
+            .Single(static item => item.Label == "暂停自动切换");
+
+        Assert.Equal(
+            [TrayCommand.PauseFifteenMinutes, TrayCommand.PauseOneHour, TrayCommand.PauseUntilResumed],
+            pause.Children!.Select(static child => child.Command));
+        Assert.Equal(TimeSpan.FromMinutes(15), TrayMenu.PauseDurationFor(TrayCommand.PauseFifteenMinutes));
+        Assert.Equal(TimeSpan.FromHours(1), TrayMenu.PauseDurationFor(TrayCommand.PauseOneHour));
+        Assert.Null(TrayMenu.PauseDurationFor(TrayCommand.PauseUntilResumed));
+    }
+
+    [Fact]
+    public void Paused_automation_offers_resume_with_the_resume_time()
+    {
+        var until = new DateTimeOffset(2026, 11, 3, 14, 30, 0, TimeSpan.Zero);
+
+        var timed = TrayMenu.Build(new TrayMenuState(false, until, null), TimeZoneInfo.Utc)
+            .Single(static item => item.Command == TrayCommand.Resume);
+        var open = TrayMenu.Build(new TrayMenuState(false, null, null), TimeZoneInfo.Utc)
+            .Single(static item => item.Command == TrayCommand.Resume);
+
+        Assert.Equal("恢复自动切换\t14:30 自动恢复", timed.Label);
+        Assert.Equal("恢复自动切换\t已暂停", open.Label);
+        Assert.Equal("FlowIME · 已暂停，14:30 自动恢复", TrayMenu.DescribeStatus(false, until, TimeZoneInfo.Utc));
+        Assert.Equal("FlowIME · 自动切换运行中", TrayMenu.DescribeStatus(true, null));
+        Assert.Equal("14:30 自动恢复", TrayMenu.DescribeResume(until, TimeZoneInfo.Utc));
+        Assert.Equal("需要手动恢复", TrayMenu.DescribeResume(null));
+    }
+
+    private static TrayMenuItem QuickRuleItem(IReadOnlyList<TrayMenuItem> menu) =>
+        menu.Where(static item => !item.IsSeparator).ElementAt(1);
 
     [Fact]
     public async Task New_quick_rule_is_scoped_to_the_executable_with_the_default_provider()

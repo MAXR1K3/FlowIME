@@ -286,7 +286,8 @@ public sealed class AppServices : IAsyncDisposable
             return new QuickRuleResult(
                 "无法保存规则",
                 "请重试。若仍失败，可在设置的高级选项中复制诊断信息。",
-                null);
+                null,
+                Failed: true);
         }
     }
 
