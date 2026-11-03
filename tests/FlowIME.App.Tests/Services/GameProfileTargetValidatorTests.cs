@@ -17,6 +17,8 @@ public sealed class GameProfileTargetValidatorTests
         Assert.Throws<ArgumentException>(() => GameProfileTargetValidator.RequireReliableTarget(profile));
         var row = Assert.Single(GameTextEntryTargetItemViewModel.Build([profile], null));
         Assert.Equal("需要关联实际游戏 EXE", row.StatusLabel);
+        Assert.Equal(GameStatusTone.Caution, row.StatusTone);
+        Assert.Equal("需关联 EXE", row.StatusChipLabel);
         Assert.True(row.CanConfigureDirectly); // Keep old data editable rather than discarding it.
     }
 

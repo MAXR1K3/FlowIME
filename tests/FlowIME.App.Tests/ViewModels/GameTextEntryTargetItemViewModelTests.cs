@@ -91,6 +91,62 @@ public sealed class GameTextEntryTargetItemViewModelTests
         Assert.Equal(expected, item.StatusLabel);
     }
 
+    [Theory]
+    [InlineData(GameplayClassification.Game, true, "Success", "聊天已开启", "指定游戏")]
+    [InlineData(GameplayClassification.Game, false, "Neutral", "聊天已停用", "指定游戏")]
+    [InlineData(GameplayClassification.Automatic, true, "Success", "聊天已开启", "自动识别")]
+    [InlineData(GameplayClassification.NotGame, true, "Neutral", "已排除", "不按游戏处理")]
+    public void Status_column_separates_chat_state_from_classification(
+        GameplayClassification classification,
+        bool enabled,
+        string tone,
+        string chip,
+        string meta)
+    {
+        var profile = Profile("path:test", "Game", "chat:test") with { Classification = classification, Enabled = enabled };
+        var item = Assert.Single(GameTextEntryTargetItemViewModel.Build([profile], null));
+
+        Assert.Equal(Enum.Parse<GameStatusTone>(tone), item.StatusTone);
+        Assert.Equal(chip, item.StatusChipLabel);
+        Assert.Equal(meta, item.MetaLabel);
+        Assert.Equal(
+            [Microsoft.UI.Xaml.Visibility.Visible],
+            new[] { item.SuccessToneVisibility, item.NeutralToneVisibility, item.CautionToneVisibility }
+                .Where(static visibility => visibility == Microsoft.UI.Xaml.Visibility.Visible));
+    }
+
+    [Fact]
+    public void Scanned_game_without_executable_is_neutral_and_shows_default_keys()
+    {
+        var discovered = new[]
+        {
+            new GameLibraryScanEntry("Steam", "123", "Library Game", @"C:\Games\LibraryGame", ExecutablePath: null, ExecutableCandidates: [])
+        };
+
+        var item = Assert.Single(GameTextEntryTargetItemViewModel.Build([], null, discovered));
+
+        Assert.Equal(GameStatusTone.Neutral, item.StatusTone);
+        Assert.Equal("需关联程序", item.StatusChipLabel);
+        Assert.Equal("Steam · 默认按键", item.MetaLabel);
+        Assert.Equal(["Enter"], item.EnterKeys);
+        Assert.Equal(["Enter", "Esc"], item.ExitKeys);
+    }
+
+    [Fact]
+    public void Configured_keys_are_listed_one_keycap_per_gesture()
+    {
+        var profile = Profile("path:test", "Game", "chat:test") with
+        {
+            EnterGestures = [new GameTextEntryKeyGesture(0xBC)],
+            ExitGestures = [new GameTextEntryKeyGesture(0x0D, GameTextEntryModifierKeys.Shift)]
+        };
+
+        var item = Assert.Single(GameTextEntryTargetItemViewModel.Build([profile], null));
+
+        Assert.Single(item.EnterKeys);
+        Assert.Equal(["Shift+Enter"], item.ExitKeys);
+    }
+
     private static GameTextEntryProfile Profile(string key, string displayName, string id) =>
         new()
         {
