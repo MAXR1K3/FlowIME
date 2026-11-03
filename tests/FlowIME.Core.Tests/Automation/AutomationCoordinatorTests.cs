@@ -817,6 +817,142 @@ public sealed class AutomationCoordinatorTests
     }
 
     [Fact]
+    public async Task Remembered_mode_replaces_the_global_default_when_returning_to_an_app()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow, ChromeWindow);
+        var repository = new FakeRuleRepository(
+            Array.Empty<ApplicationRule>(),
+            new GlobalDefaultTarget(InputMethodProviderIds.WeChat, InputAction.Chinese));
+        var backend = new FakeInputMethodBackend();
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend,
+            modeMemory: EnabledModeMemory());
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        // The user switches to English by a means FlowIME cannot see (mouse,
+        // another hotkey); the next focus change records it instead of reverting.
+        backend.CurrentState = State(InputMode.English);
+        source.RaiseFocus((nint)0x7777);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        Assert.Equal(1, backend.ApplyCount);
+        Assert.Equal(InputMode.English, backend.CurrentState.Mode);
+
+        source.Raise(ChromeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(
+            [InputAction.Chinese, InputAction.Chinese, InputAction.English],
+            backend.AppliedActions);
+        Assert.All(
+            backend.AppliedProviderIds,
+            static provider => Assert.Equal(InputMethodProviderIds.WeChat, provider));
+    }
+
+    [Fact]
+    public async Task Manual_toggle_is_remembered_for_the_next_visit()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow, ChromeWindow);
+        var repository = new FakeRuleRepository(
+            Array.Empty<ApplicationRule>(),
+            new GlobalDefaultTarget(InputMethodProviderIds.WeChat, InputAction.Chinese));
+        var backend = new FakeInputMethodBackend();
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend,
+            modeMemory: EnabledModeMemory());
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        backend.CurrentState = State(InputMode.English);
+        Assert.NotNull(await coordinator.CaptureManualInputSwitchAsync(
+            "toggle-LoneShift",
+            TestContext.Current.CancellationToken));
+
+        source.Raise(ChromeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal(InputAction.English, backend.AppliedActions[^1]);
+    }
+
+    [Fact]
+    public async Task Failed_entry_is_retried_on_focus_instead_of_observed()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow);
+        var repository = new FakeRuleRepository(
+            Array.Empty<ApplicationRule>(),
+            new GlobalDefaultTarget(InputMethodProviderIds.WeChat, InputAction.Chinese));
+        var backend = new FakeInputMethodBackend
+        {
+            FailureErrorCode = "input-context-unavailable"
+        };
+        backend.ApplyOutcomes.Enqueue(false);
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend,
+            modeMemory: EnabledModeMemory());
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        source.RaiseFocus((nint)0x7777);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        Assert.Equal([InputAction.Chinese, InputAction.Chinese], backend.AppliedActions);
+        Assert.Equal(InputMode.Chinese, backend.CurrentState.Mode);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Memory_never_changes_application_rules_or_disabled_behavior(bool withRule)
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = ResolverWith(CodeWindow);
+        var repository = new FakeRuleRepository(
+            withRule ? [RuleFor(CodeWindow, InputAction.Chinese)] : Array.Empty<ApplicationRule>(),
+            new GlobalDefaultTarget(InputMethodProviderIds.WeChat, InputAction.Chinese));
+        var backend = new FakeInputMethodBackend();
+        var memory = new ApplicationModeMemory();
+        memory.SetEnabled(withRule);
+        await using var coordinator = CreateCoordinator(
+            source,
+            resolver,
+            repository,
+            backend,
+            modeMemory: memory);
+
+        coordinator.Start();
+        source.Raise(CodeWindow.Hwnd);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+        backend.CurrentState = State(InputMode.English);
+        source.RaiseFocus((nint)0x7777);
+        await coordinator.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        // Both an explicit rule and the plain global default keep reapplying.
+        Assert.Equal([InputAction.Chinese, InputAction.Chinese], backend.AppliedActions);
+        Assert.Equal(0, memory.Count);
+    }
+
+    [Fact]
     public async Task Explicit_application_rule_failure_never_falls_back_to_global_default()
     {
         var source = new FakeForegroundWindowSource();
@@ -1151,7 +1287,8 @@ public sealed class AutomationCoordinatorTests
         IInputDecisionEngine? decisionEngine = null,
         ManualOverrideGuard? manualOverrideGuard = null,
         AutomationDecisionJournal? decisionJournal = null,
-        ITextEntryProbe? textEntryProbe = null) =>
+        ITextEntryProbe? textEntryProbe = null,
+        ApplicationModeMemory? modeMemory = null) =>
         new(
             source,
             resolver,
@@ -1171,7 +1308,15 @@ public sealed class AutomationCoordinatorTests
             decisionEngine: decisionEngine,
             manualOverrideGuard: manualOverrideGuard,
             decisionJournal: decisionJournal,
-            textEntryProbe: textEntryProbe);
+            textEntryProbe: textEntryProbe,
+            modeMemory: modeMemory);
+
+    private static ApplicationModeMemory EnabledModeMemory()
+    {
+        var memory = new ApplicationModeMemory();
+        memory.SetEnabled(true);
+        return memory;
+    }
 
     private static FakeWindowResolver ResolverWith(params WindowContext[] windows) =>
         new(windows.ToDictionary(static window => window.Hwnd));

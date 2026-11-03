@@ -18,4 +18,8 @@ public interface IAppSettingsRepository
     ValueTask SaveInputStatusOverlayAsync(
         InputStatusOverlaySettings settings,
         CancellationToken cancellationToken = default);
+
+    ValueTask SaveAppStateMemoryAsync(
+        AppStateMemorySettings settings,
+        CancellationToken cancellationToken = default);
 }

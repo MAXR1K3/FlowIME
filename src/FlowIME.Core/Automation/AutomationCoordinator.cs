@@ -37,9 +37,11 @@ public sealed class AutomationCoordinator : IAsyncDisposable
     private readonly IAutomationDelay _delay;
     private readonly uint _ignoredProcessId;
     private readonly Dictionary<uint, string> _inaccessibleProcesses = [];
+    private readonly ApplicationModeMemory _modeMemory;
 
     private Operation? _currentOperation;
     private nint _awaitingTextEntryHwnd;
+    private nint _modeMemorySettledHwnd;
     private long _generation;
     private bool _executionEnabled = true;
     private bool _started;
@@ -59,7 +61,8 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         IInputDecisionEngine? decisionEngine = null,
         ManualOverrideGuard? manualOverrideGuard = null,
         AutomationDecisionJournal? decisionJournal = null,
-        ITextEntryProbe? textEntryProbe = null)
+        ITextEntryProbe? textEntryProbe = null,
+        ApplicationModeMemory? modeMemory = null)
     {
         _foregroundSource = foregroundSource ??
             throw new ArgumentNullException(nameof(foregroundSource));
@@ -78,6 +81,7 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         _decisionEngine = decisionEngine ?? new InputDecisionEngine(_ruleEngine);
         _manualOverrideGuard = manualOverrideGuard ?? new ManualOverrideGuard();
         _decisionJournal = decisionJournal ?? new AutomationDecisionJournal();
+        _modeMemory = modeMemory ?? new ApplicationModeMemory();
         _options = options ?? new AutomationOptions();
         _options.Validate();
         _delay = delay ?? SystemAutomationDelay.Instance;
@@ -205,6 +209,7 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             state.Mode,
             source,
             Timeout.InfiniteTimeSpan);
+        _modeMemory.Record(ApplicationIdentity.FromWindow(window).Key, state.Mode);
         Trace.WriteLine(
             $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
             $"stage=manual-switch-observed foreground=0x{foreground:X} " +
@@ -439,6 +444,7 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         lock (_sync)
         {
             _awaitingTextEntryHwnd = 0;
+            _modeMemorySettledHwnd = 0;
         }
 
         RequestReapply(
@@ -751,6 +757,46 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 return;
             }
 
+            if (UsesModeMemory(decision))
+            {
+                var applicationKey = context.Application.Key;
+                if (trigger == InputContextTrigger.FocusChanged && IsModeMemorySettled(foregroundHwnd))
+                {
+                    // The window was already restored on entry. Whatever mode it is
+                    // in now, set by hotkey, mouse or the app itself, is what the
+                    // user wants back next time, so record it instead of reverting.
+                    var observed = await _inputBackend
+                        .GetStateAsync(window, cancellationToken)
+                        .ConfigureAwait(false);
+                    var recorded = _modeMemory.Record(applicationKey, observed.Mode);
+                    RecordDecision(
+                        generation,
+                        context,
+                        decision,
+                        AutomationDecisionOutcome.NoAction);
+                    TraceLine(
+                        generation,
+                        trigger,
+                        "remembered-observe",
+                        foregroundHwnd,
+                        attempt,
+                        $"process={window.ProcessName} app={applicationKey} " +
+                        $"mode={observed.Mode} recorded={recorded}");
+                    return;
+                }
+
+                if (_modeMemory.TryGet(applicationKey) is { } remembered)
+                {
+                    decision = decision with
+                    {
+                        Action = remembered == InputMode.Chinese
+                            ? InputAction.Chinese
+                            : InputAction.English,
+                        Reason = "remembered-state"
+                    };
+                }
+            }
+
             var overrideEvaluation = _manualOverrideGuard.Evaluate(context, decision);
             if (overrideEvaluation.Suppress)
             {
@@ -808,6 +854,14 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 IsRetryableApplyFailure(result.ErrorCode) &&
                 ProbeTextEntry(window) == TextEntryPresence.Absent;
             UpdateTextEntryState(window, foregroundHwnd, result, awaitingTextEntry);
+            if (result.Success && UsesModeMemory(decision))
+            {
+                _modeMemory.Record(context.Application.Key, result.After.Mode);
+                lock (_sync)
+                {
+                    _modeMemorySettledHwnd = foregroundHwnd;
+                }
+            }
 
             RecordDecision(
                 generation,
@@ -908,6 +962,24 @@ public sealed class AutomationCoordinator : IAsyncDisposable
 
                 _inaccessibleProcesses[window.ProcessId] = window.ProcessName;
             }
+        }
+    }
+
+    /// <summary>
+    /// Memory only refines the global default: explicit application rules and
+    /// context policies always win, and a Keep/US-keyboard default has no IME
+    /// provider to restore a mode with.
+    /// </summary>
+    private bool UsesModeMemory(InputDecision decision) =>
+        _modeMemory.Enabled &&
+        decision.Source == InputDecisionSource.GlobalDefault &&
+        decision.Action is InputAction.Chinese or InputAction.English;
+
+    private bool IsModeMemorySettled(nint foregroundHwnd)
+    {
+        lock (_sync)
+        {
+            return foregroundHwnd != 0 && _modeMemorySettledHwnd == foregroundHwnd;
         }
     }
 

@@ -207,6 +207,30 @@
                         <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                         <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="3" VerticalAlignment="Center">
+                                <TextBlock Text="记住每个应用的中英文状态" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    x:Name="AppStateMemoryStatusText"
+                                    Text="回到应用时恢复离开前的中文或英文；首次进入仍按全局默认。只作用于没有专属规则的应用。"
+                                    Style="{StaticResource FlowMutedTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="AppStateMemoryToggle"
+                        Style="{StaticResource FlowToggleSwitchStyle}"
+                        AutomationProperties.Name="记住每个应用的中英文状态"
+                                Grid.Column="1"
+                                VerticalAlignment="Center"
+                                HorizontalAlignment="Right"
+                                Toggled="AppStateMemoryToggle_Toggled" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />

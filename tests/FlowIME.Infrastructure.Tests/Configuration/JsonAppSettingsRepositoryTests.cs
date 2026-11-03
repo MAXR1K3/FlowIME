@@ -23,6 +23,26 @@ public sealed class JsonAppSettingsRepositoryTests : IDisposable
         Assert.False(snapshot.GameplayHotkeyGuard.BlockLegacyLanguageHotkeys);
         Assert.True(snapshot.GameplayKeyboardBaseline.Enabled);
         Assert.True(snapshot.InputStatusOverlay.Enabled);
+        Assert.False(snapshot.AppStateMemory.Enabled);
+    }
+
+    [Fact]
+    public async Task App_state_memory_preference_round_trips()
+    {
+        var paths = new AppPaths(_root);
+
+        using (var repository = new JsonAppSettingsRepository(paths))
+        {
+            await repository.SaveAppStateMemoryAsync(
+                new AppStateMemorySettings { Enabled = true },
+                TestContext.Current.CancellationToken);
+        }
+
+        using var reloaded = new JsonAppSettingsRepository(paths);
+        var snapshot = await reloaded.GetAsync(TestContext.Current.CancellationToken);
+
+        Assert.True(snapshot.AppStateMemory.Enabled);
+        Assert.True(snapshot.InputStatusOverlay.Enabled);
     }
 
     [Fact]

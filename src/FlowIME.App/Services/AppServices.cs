@@ -58,6 +58,7 @@ public sealed class AppServices : IAsyncDisposable
     private Task _gameTextEntryHotkeyTask = Task.CompletedTask;
     private RecentGameplayTarget? _recentGameplayTarget;
     private readonly ActiveGameplayTargetTracker _activeGameplayTargetTracker = new();
+    private readonly ApplicationModeMemory _modeMemory = new();
     private long _gameplayExitRestoreCount;
     private DateTimeOffset? _gameplayExitRestoreLastAt;
     private string _gameplayExitRestoreLastTarget = "none";
@@ -123,7 +124,8 @@ public sealed class AppServices : IAsyncDisposable
             decisionEngine: decisionEngine,
             manualOverrideGuard: manualOverrideGuard,
             decisionJournal: decisionJournal,
-            textEntryProbe: new UiAutomationTextEntryProbe());
+            textEntryProbe: new UiAutomationTextEntryProbe(),
+            modeMemory: _modeMemory);
         _automation.DecisionRecorded += OnAutomationDecisionRecorded;
         _gameplayHotkeyGuard.ImeToggleGestureDetected += OnImeToggleGestureDetected;
 
@@ -517,6 +519,32 @@ public sealed class AppServices : IAsyncDisposable
         {
             _automation.RequestCurrentReapply(InputContextTrigger.ManualRefresh);
         }
+    }
+
+    public async ValueTask<AppStateMemorySettings> GetAppStateMemorySettingsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var settings = await _settingsRepository
+            .GetAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return settings.AppStateMemory;
+    }
+
+    public async ValueTask SetAppStateMemorySettingsAsync(
+        AppStateMemorySettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        await _settingsRepository
+            .SaveAppStateMemoryAsync(settings, cancellationToken)
+            .ConfigureAwait(false);
+        _modeMemory.SetEnabled(settings.Enabled);
+        Trace.WriteLine(
+            $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+            $"stage=app-state-memory enabled={settings.Enabled}");
     }
 
     public GameplayKeyboardBaselineSnapshot GetGameplayKeyboardBaselineSnapshot()
@@ -1041,6 +1069,7 @@ public sealed class AppServices : IAsyncDisposable
             _gameplayHotkeyGuard.UpdateSettings(settings.GameplayHotkeyGuard);
             _gameplayHotkeyGuard.SetAutomationEnabled(IsAutomationEnabled);
             _inputStatusOverlay.UpdateSettings(settings.InputStatusOverlay);
+            _modeMemory.SetEnabled(settings.AppStateMemory.Enabled);
 
             if (ForegroundContext.Current is { } current)
             {

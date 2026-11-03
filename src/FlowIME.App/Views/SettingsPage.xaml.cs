@@ -29,6 +29,7 @@ public sealed partial class SettingsPage : Page
     // must start active, including controls hidden by the current page mode, or
     // their XAML defaults can overwrite persisted preferences before Loaded.
     private bool _synchronizingStartupToggle = true;
+    private bool _synchronizingAppStateMemoryToggle = true;
     // XAML raises control change events during InitializeComponent. Keep the guard
     // active until persisted overlay preferences have been loaded, otherwise the
     // default control values overwrite the user's saved settings on first visit.
@@ -69,6 +70,7 @@ public sealed partial class SettingsPage : Page
         }
 
         RefreshStartupState();
+        await RefreshAppStateMemoryStateAsync();
         await RefreshInputStatusOverlayStateAsync();
     }
 
@@ -291,6 +293,64 @@ public sealed partial class SettingsPage : Page
         {
             _savingInputStatusOverlay = false;
             UpdateInputStatusOverlayPersonalizationState();
+        }
+    }
+
+    private async void AppStateMemoryToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_synchronizingAppStateMemoryToggle)
+        {
+            return;
+        }
+
+        var settings = new AppStateMemorySettings
+        {
+            Enabled = AppStateMemoryToggle.IsOn
+        };
+
+        AppStateMemoryToggle.IsEnabled = false;
+        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
+        try
+        {
+            var services = ((App)Application.Current).Services;
+            await services.SetAppStateMemorySettingsAsync(settings);
+            ShowSettingsFeedback(
+                settings.Enabled ? "已开启：回到应用时恢复离开前的状态" : "已关闭应用状态记忆",
+                InfoBarSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] stage=app-state-memory-save result=failed " +
+                $"error={ex.GetType().Name}:{ex.Message}");
+            await RefreshAppStateMemoryStateAsync();
+            ShowSettingsFeedback("无法保存应用状态记忆设置，请重试。", InfoBarSeverity.Error);
+        }
+        finally
+        {
+            AppStateMemoryToggle.IsEnabled = true;
+        }
+    }
+
+    private async Task RefreshAppStateMemoryStateAsync()
+    {
+        _synchronizingAppStateMemoryToggle = true;
+        try
+        {
+            var services = ((App)Application.Current).Services;
+            var settings = await services.GetAppStateMemorySettingsAsync();
+            AppStateMemoryToggle.IsOn = settings.Enabled;
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] stage=app-state-memory-read result=failed " +
+                $"error={ex.GetType().Name}:{ex.Message}");
+            AppStateMemoryToggle.IsOn = false;
+        }
+        finally
+        {
+            _synchronizingAppStateMemoryToggle = false;
         }
     }
 

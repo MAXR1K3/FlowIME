@@ -107,6 +107,27 @@ public sealed class JsonAppSettingsRepository : IAppSettingsRepository, IDisposa
         }
     }
 
+    public async ValueTask SaveAppStateMemoryAsync(
+        AppStateMemorySettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        await _gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await EnsureLoadedCoreAsync(cancellationToken).ConfigureAwait(false);
+            var next = _snapshot with { AppStateMemory = settings };
+            await PersistCoreAsync(next, cancellationToken).ConfigureAwait(false);
+            _snapshot = next;
+        }
+        finally
+        {
+            _gate.Release();
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -224,6 +245,8 @@ public sealed class JsonAppSettingsRepository : IAppSettingsRepository, IDisposa
 
         public InputStatusOverlaySettings? InputStatusOverlay { get; set; }
 
+        public AppStateMemorySettings? AppStateMemory { get; set; }
+
         public SettingsDocument()
         {
         }
@@ -234,13 +257,17 @@ public sealed class JsonAppSettingsRepository : IAppSettingsRepository, IDisposa
                 SchemaVersion = CurrentSchemaVersion,
                 GameplayHotkeyGuard = snapshot.GameplayHotkeyGuard,
                 GameplayKeyboardBaseline = snapshot.GameplayKeyboardBaseline,
-                InputStatusOverlay = snapshot.InputStatusOverlay
+                InputStatusOverlay = snapshot.InputStatusOverlay,
+                AppStateMemory = snapshot.AppStateMemory
             };
 
         internal AppSettingsSnapshot ToSnapshot() =>
             new(
                 GameplayHotkeyGuard ?? GameplayHotkeyGuardSettings.Default,
                 GameplayKeyboardBaseline ?? GameplayKeyboardBaselineSettings.Default,
-                (InputStatusOverlay ?? InputStatusOverlaySettings.Default).Normalize());
+                (InputStatusOverlay ?? InputStatusOverlaySettings.Default).Normalize())
+            {
+                AppStateMemory = AppStateMemory ?? AppStateMemorySettings.Default
+            };
     }
 }
