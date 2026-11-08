@@ -58,7 +58,7 @@
                         <Setter Target="GameTextEntryActions.(Grid.Column)" Value="0" />
                         <Setter Target="GameTextEntryActions.Margin" Value="0,12,0,0" />
                         <Setter Target="GameTextEntryActions.HorizontalAlignment" Value="Left" />
-                        <Setter Target="GameLibraryList.(Grid.Row)" Value="2" />
+                        <Setter Target="GameLibraryPanel.(Grid.Row)" Value="2" />
 
                         <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="1" />
                         <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="0" />
@@ -112,7 +112,7 @@
                         <Setter Target="GameTextEntryActions.(Grid.Column)" Value="1" />
                         <Setter Target="GameTextEntryActions.Margin" Value="0" />
                         <Setter Target="GameTextEntryActions.HorizontalAlignment" Value="Right" />
-                        <Setter Target="GameLibraryList.(Grid.Row)" Value="1" />
+                        <Setter Target="GameLibraryPanel.(Grid.Row)" Value="1" />
 
                         <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="0" />
                         <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="1" />
@@ -521,14 +521,21 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid Width="10" Height="10" VerticalAlignment="Center">
-                            <Ellipse
+                        <!-- Live detection: a green tile while a game is in front. -->
+                        <Grid Width="40" Height="40" VerticalAlignment="Center">
+                            <Border
                                 x:Name="CurrentGameActiveIndicator"
-                                Fill="{ThemeResource FlowSuccessBrush}"
-                                Visibility="Collapsed" />
-                            <Ellipse
+                                CornerRadius="8"
+                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                Visibility="Collapsed">
+                                <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                            </Border>
+                            <Border
                                 x:Name="CurrentGameInactiveIndicator"
-                                Fill="{ThemeResource TextFillColorTertiaryBrush}" />
+                                CornerRadius="8"
+                                Background="{ThemeResource FlowInsetBackgroundBrush}">
+                                <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </Border>
                         </Grid>
                         <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                             <TextBlock
@@ -582,10 +589,29 @@
                             Click="AddGameTextEntryButton_Click" />
                     </StackPanel>
 
-                    <ListView
-                        x:Name="GameLibraryList"
+                    <StackPanel
+                        x:Name="GameLibraryPanel"
                         Grid.Row="1"
                         Grid.ColumnSpan="2"
+                        Spacing="4">
+                    <SelectorBar
+                        x:Name="GameLibraryFilterBar"
+                        Margin="-4,0,0,0"
+                        SelectionChanged="GameLibraryFilterBar_SelectionChanged"
+                        AutomationProperties.Name="筛选游戏">
+                        <SelectorBarItem x:Name="GameFilterAllItem" Text="全部" Tag="All" IsSelected="True" />
+                        <SelectorBarItem x:Name="GameFilterConfiguredItem" Text="已配置" Tag="Configured" />
+                        <SelectorBarItem x:Name="GameFilterNotSetUpItem" Text="未设置" Tag="NotSetUp" />
+                    </SelectorBar>
+                    <TextBlock
+                        x:Name="GameLibraryEmptyText"
+                        Margin="0,16"
+                        HorizontalAlignment="Center"
+                        Text="没有匹配的游戏"
+                        Visibility="Collapsed"
+                        Style="{StaticResource FlowMutedTextStyle}" />
+                    <ListView
+                        x:Name="GameLibraryList"
                         SelectionMode="None"
                         IsItemClickEnabled="False"
                         AutomationProperties.Name="游戏输入库">
@@ -612,6 +638,29 @@
                                 <StackPanel Orientation="Horizontal" Spacing="4" />
                             </ItemsPanelTemplate>
                         </ListView.Resources>
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderContainerStyle>
+                                    <Style TargetType="ListViewHeaderItem">
+                                        <Setter Property="Margin" Value="0" />
+                                        <Setter Property="Padding" Value="2,14,0,8" />
+                                        <Setter Property="MinHeight" Value="0" />
+                                    </Style>
+                                </GroupStyle.HeaderContainerStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <Run Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
+                                            <Run Text="  " />
+                                            <Run
+                                                Text="{Binding CountLabel}"
+                                                FontSize="13"
+                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem" BasedOn="{StaticResource FlowRuleListItemStyle}">
                                 <Setter Property="Margin" Value="0,0,0,6" />
@@ -661,7 +710,7 @@
                                                     FontSize="12"
                                                     Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                             </TextBlock>
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{Binding KeysVisibility}">
                                                 <TextBlock
                                                     Text="打开"
                                                     FontSize="12"
@@ -743,6 +792,7 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
 

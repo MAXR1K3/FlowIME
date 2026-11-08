@@ -8,6 +8,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -538,16 +539,38 @@ public sealed partial class SettingsPage : Page
         AutoSuggestBoxTextChangedEventArgs args) =>
         ApplyGameLibraryFilter();
 
+    private void GameLibraryFilterBar_SelectionChanged(
+        SelectorBar sender,
+        SelectorBarSelectionChangedEventArgs args) =>
+        ApplyGameLibraryFilter();
+
     private void ApplyGameLibraryFilter()
     {
-        var query = GameLibrarySearchBox.Text?.Trim();
-        var filtered = string.IsNullOrWhiteSpace(query)
-            ? _gameLibraryItems
-            : _gameLibraryItems.Where(item =>
-                    item.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                    item.SourceName.Contains(query, StringComparison.CurrentCultureIgnoreCase))
-                .ToArray();
-        GameLibraryList.ItemsSource = filtered;
+        if (GameLibraryList is null)
+        {
+            return;
+        }
+
+        var filter = GameLibraryFilterBar.SelectedItem?.Tag is string tag &&
+            Enum.TryParse<GameLibraryFilter>(tag, out var selected)
+                ? selected
+                : GameLibraryFilter.All;
+        var filtered = GameLibraryView.Filter(_gameLibraryItems, GameLibrarySearchBox.Text, filter);
+
+        // Sections only help when both kinds are listed together.
+        GameLibraryList.ItemsSource = filter == GameLibraryFilter.All
+            ? new CollectionViewSource { IsSourceGrouped = true, Source = GameLibraryView.Group(filtered) }.View
+            : filtered;
+        GameLibraryEmptyText.Visibility = filtered.Count == 0 && _gameLibraryItems.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void UpdateGameLibraryFilterLabels()
+    {
+        GameFilterAllItem.Text = GameLibraryView.TabLabel(GameLibraryFilter.All, _gameLibraryItems);
+        GameFilterConfiguredItem.Text = GameLibraryView.TabLabel(GameLibraryFilter.Configured, _gameLibraryItems);
+        GameFilterNotSetUpItem.Text = GameLibraryView.TabLabel(GameLibraryFilter.NotSetUp, _gameLibraryItems);
     }
 
     private async Task<GameTextEntryTargetItemViewModel?> ResolveExecutableForTargetAsync(
@@ -914,6 +937,7 @@ public sealed partial class SettingsPage : Page
             item.Icon = await LoadGameArtworkAsync(item);
         }
 
+        UpdateGameLibraryFilterLabels();
         ApplyGameLibraryFilter();
         var configuredCount = _gameLibraryItems.Count(item => item.HasProfile);
         GameTextEntryProfileStatusText.Text = _gameLibraryItems.Count == 0

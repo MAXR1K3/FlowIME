@@ -90,8 +90,7 @@ internal sealed record GameTextEntryTargetItemViewModel(
                 _ => "指定游戏"
             },
             IsRecent ? "最近检测" : null,
-            StringComparer.Ordinal.Equals(SourceLabel, "最近检测") ? null : SourceLabel,
-            ExistingProfile is null ? "默认按键" : null
+            StringComparer.Ordinal.Equals(SourceLabel, "最近检测") ? null : SourceLabel
         }.Where(static part => !string.IsNullOrEmpty(part)));
 
     /// <summary>Keys that open the game chat, shown as keycaps.</summary>
@@ -103,6 +102,12 @@ internal sealed record GameTextEntryTargetItemViewModel(
     public IReadOnlyList<string> ExitKeys => ExistingProfile is { } profile
         ? (profile.ExitGestures ?? []).Select(GameTextEntryKeyGestureParser.Format).ToArray()
         : ["Enter", "Esc"];
+
+    /// <summary>
+    /// Only configured games show their keys; for the rest the section and the
+    /// status column already say they are not set up, so the row stays one line.
+    /// </summary>
+    public Visibility KeysVisibility => HasProfile ? Visibility.Visible : Visibility.Collapsed;
 
     private Visibility ToneVisibility(GameStatusTone tone) =>
         StatusTone == tone ? Visibility.Visible : Visibility.Collapsed;

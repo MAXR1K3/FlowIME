@@ -116,7 +116,7 @@ public sealed class GameTextEntryTargetItemViewModelTests
     }
 
     [Fact]
-    public void Scanned_game_without_executable_is_neutral_and_shows_default_keys()
+    public void Scanned_game_without_executable_is_neutral_and_keeps_default_keys_off_the_row()
     {
         var discovered = new[]
         {
@@ -127,7 +127,8 @@ public sealed class GameTextEntryTargetItemViewModelTests
 
         Assert.Equal(GameStatusTone.Neutral, item.StatusTone);
         Assert.Equal("需关联程序", item.StatusChipLabel);
-        Assert.Equal("Steam · 默认按键", item.MetaLabel);
+        Assert.Equal("Steam", item.MetaLabel);
+        Assert.Equal(Microsoft.UI.Xaml.Visibility.Collapsed, item.KeysVisibility);
         Assert.Equal(["Enter"], item.EnterKeys);
         Assert.Equal(["Enter", "Esc"], item.ExitKeys);
     }
