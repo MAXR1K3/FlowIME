@@ -85,7 +85,8 @@ public sealed class JsonGameTextEntryProfileRepositoryTests
             ApplicationDisplayName = "Test Game",
             ExecutablePath = @"C:\Games\TestGame.exe",
             DetectionMode = GameTextEntryDetectionMode.StandardTextControl |
-                GameTextEntryDetectionMode.HotkeyProfile,
+                GameTextEntryDetectionMode.HotkeyProfile |
+                GameTextEntryDetectionMode.PointerMenu,
             ProviderId = InputMethodProviderIds.WeChat,
             Action = InputAction.Chinese,
             EnterGestures = [new(0x54), new(0x59)],

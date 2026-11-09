@@ -38,6 +38,10 @@ public sealed class AppServices : IAsyncDisposable
     private readonly GameTextEntryProfileRegistry _gameTextEntryProfiles = new();
     private readonly GameplayKeyboardBaseline _gameplayKeyboardBaseline;
     private readonly GameplayHotkeyGuard _gameplayHotkeyGuard;
+    private readonly GameplayPointerMonitor _gameplayPointerMonitor = new();
+    private readonly PointerMenuTracker _pointerMenuTracker = new();
+    private readonly object _pointerMenuSync = new();
+    private nint _pointerMenuHwnd;
     private readonly GameTextEntryHotkeyMonitor _gameTextEntryHotkeyMonitor;
     private readonly InputStatusOverlay _inputStatusOverlay;
     private readonly KeyboardLayoutInspector _keyboardLayoutInspector = new();
@@ -128,6 +132,7 @@ public sealed class AppServices : IAsyncDisposable
             modeMemory: _modeMemory);
         _automation.DecisionRecorded += OnAutomationDecisionRecorded;
         _gameplayHotkeyGuard.ImeToggleGestureDetected += OnImeToggleGestureDetected;
+        _gameplayPointerMonitor.Sampled += OnGameplayPointerSampled;
 
         ForegroundContext = new ForegroundContextService(
             _foregroundSource,
@@ -246,6 +251,7 @@ public sealed class AppServices : IAsyncDisposable
             {
                 UpdateGameplayKeyboardBaselineContext(current);
                 UpdateGameplayHotkeyGuardContext(current);
+                UpdateGameplayPointerMonitorContext(current);
                 UpdateGameTextEntryHotkeyMonitorContext(current, enabled);
             }
 
@@ -988,10 +994,12 @@ public sealed class AppServices : IAsyncDisposable
         _foregroundSource.ForegroundWindowChanged -= OnRawForegroundChangedForHotkeyGuard;
         _automation.DecisionRecorded -= OnAutomationDecisionRecorded;
         _gameplayHotkeyGuard.ImeToggleGestureDetected -= OnImeToggleGestureDetected;
+        _gameplayPointerMonitor.Sampled -= OnGameplayPointerSampled;
         _gameTextEntryHotkeyMonitor.TransitionDetected -= OnGameTextEntryHotkeyTransitionDetected;
         await _initializationTask.ConfigureAwait(false);
         _gameplayHotkeyGuard.SetAutomationEnabled(false);
         _gameplayHotkeyGuard.Dispose();
+        _gameplayPointerMonitor.Dispose();
         _gameTextEntryHotkeyMonitor.Dispose();
         _inputStatusOverlay.Dispose();
         await _automation.DisposeAsync().ConfigureAwait(false);
@@ -1366,6 +1374,7 @@ public sealed class AppServices : IAsyncDisposable
 
             UpdateGameplayKeyboardBaselineContext(snapshot);
             UpdateGameplayHotkeyGuardContext(snapshot);
+            UpdateGameplayPointerMonitorContext(snapshot);
             UpdateGameTextEntryHotkeyMonitorContext(snapshot, IsAutomationEnabled);
 
             if (transition == GameplayTransition.Exited)
@@ -1455,6 +1464,77 @@ public sealed class AppServices : IAsyncDisposable
             gameContext: context?.HasSignal(InputContextSignalKind.Game) == true,
             gameTextEntry: context?.HasSignal(InputContextSignalKind.GameTextEntry) == true,
             processName: snapshot.Window.ProcessName);
+    }
+
+    // Pointer readings drive menu mode for games that opt in, and are logged
+    // on change for every game so other titles can be diagnosed.
+    private void UpdateGameplayPointerMonitorContext(CurrentStateSnapshot snapshot)
+    {
+        var gameContext = snapshot.Context?.HasSignal(InputContextSignalKind.Game) == true;
+        lock (_pointerMenuSync)
+        {
+            if (!gameContext || _pointerMenuHwnd != snapshot.Window.Hwnd)
+            {
+                _pointerMenuTracker.Reset();
+                _pointerMenuHwnd = gameContext ? snapshot.Window.Hwnd : 0;
+            }
+        }
+
+        _gameplayPointerMonitor.UpdateContext(
+            gameContext: gameContext,
+            hwnd: snapshot.Window.Hwnd,
+            threadId: snapshot.Window.ThreadId,
+            processName: snapshot.Window.ProcessName);
+    }
+
+    /// <summary>
+    /// Menu mode: while a game that opts in shows its pointer (menus, rename
+    /// boxes, pause screens) the game's text-entry input applies; once the
+    /// pointer is hidden again (play) the US keyboard and hotkey guard return.
+    /// A session started by the chat hotkey is never ended from here.
+    /// </summary>
+    private void OnGameplayPointerSampled(nint hwnd, CursorObservation observation)
+    {
+        if (_disposed || !IsAutomationEnabled)
+        {
+            return;
+        }
+
+        var current = ForegroundContext.Current;
+        var context = current?.Context;
+        if (current is null || context is null || current.Window.Hwnd != hwnd ||
+            !context.HasSignal(InputContextSignalKind.Game))
+        {
+            return;
+        }
+
+        var profile = _gameTextEntryProfiles.Resolve(context.Application);
+        PointerMenuTransition transition;
+        lock (_pointerMenuSync)
+        {
+            if (profile is null || !profile.DetectionMode.HasFlag(GameTextEntryDetectionMode.PointerMenu))
+            {
+                _pointerMenuTracker.Reset();
+                return;
+            }
+
+            transition = _pointerMenuTracker.Observe(observation.Showing, DateTimeOffset.UtcNow);
+        }
+
+        var session = _gameTextEntryRuntimeState.GetSnapshot();
+        if (transition == PointerMenuTransition.Enter && !session.Active)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.PointerMenu] utc={DateTimeOffset.UtcNow:O} stage=enter process={current.Window.ProcessName}");
+            _ = TryEnterGameTextEntry(GameTextEntryActivationSource.PointerMenu, profile.Id);
+        }
+        else if (transition == PointerMenuTransition.Exit &&
+            session is { Active: true, Source: GameTextEntryActivationSource.PointerMenu })
+        {
+            Trace.WriteLine(
+                $"[FlowIME.PointerMenu] utc={DateTimeOffset.UtcNow:O} stage=exit process={current.Window.ProcessName}");
+            _ = ExitGameTextEntry("pointer-menu-exit");
+        }
     }
 
     private void UpdateGameTextEntryHotkeyMonitorContext(

@@ -6,7 +6,8 @@ public enum GameTextEntryActivationSource
     StandardTextControl,
     HotkeyProfile,
     Manual,
-    Adapter
+    Adapter,
+    PointerMenu
 }
 
 public sealed record GameTextEntryRuntimeSnapshot(

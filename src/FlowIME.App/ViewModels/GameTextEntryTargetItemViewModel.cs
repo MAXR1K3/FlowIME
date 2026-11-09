@@ -89,6 +89,7 @@ internal sealed record GameTextEntryTargetItemViewModel(
                 GameplayClassification.Automatic => "自动识别",
                 _ => "指定游戏"
             },
+            ExistingProfile?.DetectionMode.HasFlag(GameTextEntryDetectionMode.PointerMenu) == true ? "菜单可输入" : null,
             IsRecent ? "最近检测" : null,
             StringComparer.Ordinal.Equals(SourceLabel, "最近检测") ? null : SourceLabel
         }.Where(static part => !string.IsNullOrEmpty(part)));
@@ -104,10 +105,13 @@ internal sealed record GameTextEntryTargetItemViewModel(
         : ["Enter", "Esc"];
 
     /// <summary>
-    /// Only configured games show their keys; for the rest the section and the
-    /// status column already say they are not set up, so the row stays one line.
+    /// Keys are shown only for games recognized by their chat hotkeys; the rest
+    /// (not set up, or menu mode only) stay on one line.
     /// </summary>
-    public Visibility KeysVisibility => HasProfile ? Visibility.Visible : Visibility.Collapsed;
+    public Visibility KeysVisibility =>
+        ExistingProfile?.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile) == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
 
     private Visibility ToneVisibility(GameStatusTone tone) =>
         StatusTone == tone ? Visibility.Visible : Visibility.Collapsed;

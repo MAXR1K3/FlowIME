@@ -148,6 +148,28 @@ public sealed class GameTextEntryTargetItemViewModelTests
         Assert.Equal(["Shift+Enter"], item.ExitKeys);
     }
 
+    [Theory]
+    [InlineData(GameTextEntryDetectionMode.HotkeyProfile, true, "指定游戏")]
+    [InlineData(GameTextEntryDetectionMode.PointerMenu, false, "指定游戏 · 菜单可输入")]
+    [InlineData(GameTextEntryDetectionMode.HotkeyProfile | GameTextEntryDetectionMode.PointerMenu, true, "指定游戏 · 菜单可输入")]
+    public void Keys_show_only_for_hotkey_detection_and_menu_mode_is_named(
+        GameTextEntryDetectionMode mode,
+        bool keysShown,
+        string meta)
+    {
+        var profile = Profile("path:test", "Game", "chat:test") with
+        {
+            DetectionMode = mode,
+            EnterGestures = [new GameTextEntryKeyGesture(0x0D)],
+            ExitGestures = [new GameTextEntryKeyGesture(0x1B)]
+        };
+
+        var item = Assert.Single(GameTextEntryTargetItemViewModel.Build([profile], null));
+
+        Assert.Equal(keysShown, item.KeysVisibility == Microsoft.UI.Xaml.Visibility.Visible);
+        Assert.Equal(meta, item.MetaLabel);
+    }
+
     private static GameTextEntryProfile Profile(string key, string displayName, string id) =>
         new()
         {
