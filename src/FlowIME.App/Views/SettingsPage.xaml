@@ -24,11 +24,6 @@
                         <Setter Target="StartupToggle.Margin" Value="0,10,0,0" />
                         <Setter Target="StartupToggle.HorizontalAlignment" Value="Left" />
 
-                        <Setter Target="TrayToggle.(Grid.Row)" Value="1" />
-                        <Setter Target="TrayToggle.(Grid.Column)" Value="0" />
-                        <Setter Target="TrayToggle.Margin" Value="0,10,0,0" />
-                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Left" />
-
                         <Setter Target="InputStatusOverlayToggle.(Grid.Row)" Value="1" />
                         <Setter Target="InputStatusOverlayToggle.(Grid.Column)" Value="0" />
                         <Setter Target="InputStatusOverlayToggle.Margin" Value="0,10,0,0" />
@@ -63,7 +58,7 @@
                         <Setter Target="GameTextEntryActions.(Grid.Column)" Value="0" />
                         <Setter Target="GameTextEntryActions.Margin" Value="0,12,0,0" />
                         <Setter Target="GameTextEntryActions.HorizontalAlignment" Value="Left" />
-                        <Setter Target="GameLibraryList.(Grid.Row)" Value="2" />
+                        <Setter Target="GameLibraryPanel.(Grid.Row)" Value="2" />
 
                         <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="1" />
                         <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="0" />
@@ -82,11 +77,6 @@
                         <Setter Target="StartupToggle.(Grid.Column)" Value="1" />
                         <Setter Target="StartupToggle.Margin" Value="0" />
                         <Setter Target="StartupToggle.HorizontalAlignment" Value="Right" />
-
-                        <Setter Target="TrayToggle.(Grid.Row)" Value="0" />
-                        <Setter Target="TrayToggle.(Grid.Column)" Value="1" />
-                        <Setter Target="TrayToggle.Margin" Value="0" />
-                        <Setter Target="TrayToggle.HorizontalAlignment" Value="Right" />
 
                         <Setter Target="InputStatusOverlayToggle.(Grid.Row)" Value="0" />
                         <Setter Target="InputStatusOverlayToggle.(Grid.Column)" Value="1" />
@@ -122,7 +112,7 @@
                         <Setter Target="GameTextEntryActions.(Grid.Column)" Value="1" />
                         <Setter Target="GameTextEntryActions.Margin" Value="0" />
                         <Setter Target="GameTextEntryActions.HorizontalAlignment" Value="Right" />
-                        <Setter Target="GameLibraryList.(Grid.Row)" Value="1" />
+                        <Setter Target="GameLibraryPanel.(Grid.Row)" Value="1" />
 
                         <Setter Target="CopyDiagnosticsButton.(Grid.Row)" Value="0" />
                         <Setter Target="CopyDiagnosticsButton.(Grid.Column)" Value="1" />
@@ -161,7 +151,7 @@
             </VisualStateGroup>
         </VisualStateManager.VisualStateGroups>
 
-        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowPageContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Left">
+        <StackPanel x:Name="PageContent" MaxWidth="{StaticResource FlowPageContentMaxWidth}" Padding="16,20,16,28" Spacing="20" HorizontalAlignment="Stretch">
             <StackPanel Spacing="5">
                 <TextBlock x:Name="PageTitle" Text="设置" Style="{StaticResource FlowPageTitleStyle}" />
                 <TextBlock
@@ -170,9 +160,6 @@
                     Style="{StaticResource FlowPageSubtitleStyle}" />
             </StackPanel>
 
-            <InfoBar x:Name="SettingsFeedbackBar" IsOpen="False" Visibility="Collapsed"
-                IsClosable="True" Closed="SettingsFeedbackBar_Closed"
-                AutomationProperties.LiveSetting="Polite" />
 
             <StackPanel x:Name="GeneralSection" Spacing="10">
                 <TextBlock Text="常规" Style="{StaticResource FlowSectionTitleStyle}" />
@@ -207,29 +194,45 @@
                         <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
 
                         <Grid Padding="18" ColumnSpacing="20" RowSpacing="4">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Spacing="3" VerticalAlignment="Center">
-                                <TextBlock Text="关闭窗口后继续运行" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock Text="记住每个应用的中英文状态" FontWeight="SemiBold" TextWrapping="Wrap" />
                                 <TextBlock
-                                    Text="关闭主窗口会隐藏到系统托盘；只有从托盘菜单选择“退出”才结束 FlowIME。"
+                                    x:Name="AppStateMemoryStatusText"
+                                    Text="回到应用时恢复离开前的中文或英文；首次进入仍按全局默认。只作用于没有专属规则的应用。"
                                     Style="{StaticResource FlowMutedTextStyle}" />
                             </StackPanel>
                             <ToggleSwitch
-                                x:Name="TrayToggle"
+                                x:Name="AppStateMemoryToggle"
                         Style="{StaticResource FlowToggleSwitchStyle}"
-                        AutomationProperties.Name="关闭窗口后继续运行"
+                        AutomationProperties.Name="记住每个应用的中英文状态"
                                 Grid.Column="1"
                                 VerticalAlignment="Center"
                                 HorizontalAlignment="Right"
-                                IsOn="True"
-                                IsEnabled="False" />
+                                Toggled="AppStateMemoryToggle_Toggled" />
+                        </Grid>
+
+                        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <!-- Always-on behavior: stated as a fact, not shown as a locked switch. -->
+                        <Grid Padding="18" ColumnSpacing="12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <FontIcon
+                                Glyph="&#xE946;"
+                                FontSize="16"
+                                Margin="0,2,0,0"
+                                VerticalAlignment="Top"
+                                Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            <TextBlock
+                                Grid.Column="1"
+                                Text="关闭主窗口后 FlowIME 会继续在系统托盘运行；从托盘菜单选择“退出”才会结束。"
+                                Style="{StaticResource FlowMutedTextStyle}" />
                         </Grid>
                     </StackPanel>
                 </Border>
@@ -518,14 +521,21 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <Grid Width="10" Height="10" VerticalAlignment="Center">
-                            <Ellipse
+                        <!-- Live detection: a green tile while a game is in front. -->
+                        <Grid Width="40" Height="40" VerticalAlignment="Center">
+                            <Border
                                 x:Name="CurrentGameActiveIndicator"
-                                Fill="{ThemeResource FlowSuccessBrush}"
-                                Visibility="Collapsed" />
-                            <Ellipse
+                                CornerRadius="8"
+                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                Visibility="Collapsed">
+                                <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="{ThemeResource SystemFillColorSuccessBrush}" />
+                            </Border>
+                            <Border
                                 x:Name="CurrentGameInactiveIndicator"
-                                Fill="{ThemeResource TextFillColorTertiaryBrush}" />
+                                CornerRadius="8"
+                                Background="{ThemeResource FlowInsetBackgroundBrush}">
+                                <FontIcon Glyph="&#xE7FC;" FontSize="20" Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                            </Border>
                         </Grid>
                         <StackPanel Grid.Column="1" Spacing="3" VerticalAlignment="Center">
                             <TextBlock
@@ -554,7 +564,6 @@
                     <AutoSuggestBox
                         x:Name="GameLibrarySearchBox"
                         MinWidth="260"
-                        MaxWidth="520"
                         HorizontalAlignment="Stretch"
                         VerticalContentAlignment="Center"
                         PlaceholderText="搜索游戏"
@@ -580,52 +589,201 @@
                             Click="AddGameTextEntryButton_Click" />
                     </StackPanel>
 
-                    <ListView
-                        x:Name="GameLibraryList"
+                    <StackPanel
+                        x:Name="GameLibraryPanel"
                         Grid.Row="1"
                         Grid.ColumnSpan="2"
+                        Spacing="4">
+                    <SelectorBar
+                        x:Name="GameLibraryFilterBar"
+                        Margin="-4,0,0,0"
+                        SelectionChanged="GameLibraryFilterBar_SelectionChanged"
+                        AutomationProperties.Name="筛选游戏">
+                        <SelectorBarItem x:Name="GameFilterAllItem" Text="全部" Tag="All" IsSelected="True" />
+                        <SelectorBarItem x:Name="GameFilterConfiguredItem" Text="已配置" Tag="Configured" />
+                        <SelectorBarItem x:Name="GameFilterNotSetUpItem" Text="未设置" Tag="NotSetUp" />
+                    </SelectorBar>
+                    <TextBlock
+                        x:Name="GameLibraryEmptyText"
+                        Margin="0,16"
+                        HorizontalAlignment="Center"
+                        Text="没有匹配的游戏"
+                        Visibility="Collapsed"
+                        Style="{StaticResource FlowMutedTextStyle}" />
+                    <ListView
+                        x:Name="GameLibraryList"
                         SelectionMode="None"
                         IsItemClickEnabled="False"
                         AutomationProperties.Name="游戏输入库">
+                        <ListView.Resources>
+                            <!-- Shortcut keys drawn as keycaps. -->
+                            <DataTemplate x:Key="GameKeycapTemplate">
+                                <Border
+                                    MinWidth="28"
+                                    Height="22"
+                                    Padding="7,0"
+                                    Background="{ThemeResource ControlFillColorDefaultBrush}"
+                                    BorderBrush="{ThemeResource ControlStrokeColorDefaultBrush}"
+                                    BorderThickness="1,1,1,2"
+                                    CornerRadius="4">
+                                    <TextBlock
+                                        Text="{Binding}"
+                                        FontSize="12"
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Foreground="{ThemeResource TextFillColorPrimaryBrush}" />
+                                </Border>
+                            </DataTemplate>
+                            <ItemsPanelTemplate x:Key="GameKeycapPanel">
+                                <StackPanel Orientation="Horizontal" Spacing="4" />
+                            </ItemsPanelTemplate>
+                        </ListView.Resources>
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.HeaderContainerStyle>
+                                    <Style TargetType="ListViewHeaderItem">
+                                        <Setter Property="Margin" Value="0" />
+                                        <Setter Property="Padding" Value="2,14,0,8" />
+                                        <Setter Property="MinHeight" Value="0" />
+                                    </Style>
+                                </GroupStyle.HeaderContainerStyle>
+                                <GroupStyle.HeaderTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <Run Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" />
+                                            <Run Text="  " />
+                                            <Run
+                                                Text="{Binding CountLabel}"
+                                                FontSize="13"
+                                                Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </GroupStyle.HeaderTemplate>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem" BasedOn="{StaticResource FlowRuleListItemStyle}">
-                                <Setter Property="Margin" Value="0,0,0,8" />
+                                <Setter Property="Margin" Value="0,0,0,6" />
+                                <Setter Property="MinHeight" Value="0" />
                             </Style>
                         </ListView.ItemContainerStyle>
                         <ListView.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="14" Style="{StaticResource FlowCardStyle}">
-                                    <Grid MinHeight="60" ColumnSpacing="14">
+                                <Border
+                                    Padding="16,12"
+                                    Background="{ThemeResource FlowCardBackgroundBrush}"
+                                    BorderBrush="{ThemeResource FlowCardBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10">
+                                    <Grid ColumnSpacing="16">
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="60" />
+                                            <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
-                                        <Border Width="56" Height="56" CornerRadius="10" Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+
+                                        <!-- Game artwork, or a quiet controller tile when there is none. -->
+                                        <Border
+                                            Width="44"
+                                            Height="44"
+                                            VerticalAlignment="Center"
+                                            CornerRadius="8"
+                                            Background="{ThemeResource FlowInsetBackgroundBrush}">
                                             <Grid>
-                                                <FontIcon Glyph="&#xE7FC;" FontSize="24" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <FontIcon
+                                                    Glyph="&#xE7FC;"
+                                                    FontSize="20"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
                                                 <Image Source="{Binding Icon}" Stretch="UniformToFill" />
                                             </Grid>
                                         </Border>
-                                        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-                                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                                <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextWrapping="Wrap" VerticalAlignment="Center" />
-                                                <Border Style="{StaticResource FlowStatusPillStyle}">
-                                                    <TextBlock Text="{Binding StatusLabel}" FontSize="11" />
-                                                </Border>
+
+                                        <StackPanel Grid.Column="1" Spacing="6" VerticalAlignment="Center">
+                                            <TextBlock TextWrapping="Wrap">
+                                                <Run Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold" />
+                                                <Run Text="   " FontSize="12" />
+                                                <Run
+                                                    Text="{Binding MetaLabel}"
+                                                    FontSize="12"
+                                                    Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+                                            </TextBlock>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{Binding KeysVisibility}">
+                                                <TextBlock
+                                                    Text="打开"
+                                                    FontSize="12"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <ItemsControl
+                                                    ItemsSource="{Binding EnterKeys}"
+                                                    ItemTemplate="{StaticResource GameKeycapTemplate}"
+                                                    ItemsPanel="{StaticResource GameKeycapPanel}"
+                                                    IsTabStop="False" />
+                                                <TextBlock
+                                                    Margin="10,0,0,0"
+                                                    Text="发送 / 取消"
+                                                    FontSize="12"
+                                                    VerticalAlignment="Center"
+                                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                <ItemsControl
+                                                    ItemsSource="{Binding ExitKeys}"
+                                                    ItemTemplate="{StaticResource GameKeycapTemplate}"
+                                                    ItemsPanel="{StaticResource GameKeycapPanel}"
+                                                    IsTabStop="False" />
                                             </StackPanel>
-                                            <TextBlock Text="{Binding ShortcutSummary}" Style="{StaticResource FlowMutedTextStyle}" TextWrapping="Wrap" />
                                         </StackPanel>
-                                        <TextBlock
-                                            Grid.Column="2"
-                                            Text="{Binding SourceLabel}"
-                                            Margin="10,0"
-                                            VerticalAlignment="Center"
-                                            Style="{StaticResource FlowMutedTextStyle}" />
+
+                                        <!-- Chat state, aligned in one column so the list scans top to bottom. -->
+                                        <Grid Grid.Column="2" Width="112" VerticalAlignment="Center">
+                                            <Border
+                                                HorizontalAlignment="Left"
+                                                Padding="8,3,10,3"
+                                                CornerRadius="4"
+                                                Background="{ThemeResource SystemFillColorSuccessBackgroundBrush}"
+                                                Visibility="{Binding SuccessToneVisibility}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
+                                                    <TextBlock Text="{Binding StatusChipLabel}" FontSize="12" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border
+                                                HorizontalAlignment="Left"
+                                                Padding="8,3,10,3"
+                                                CornerRadius="4"
+                                                Background="{ThemeResource FlowInsetBackgroundBrush}"
+                                                Visibility="{Binding NeutralToneVisibility}">
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <Ellipse Width="6" Height="6" VerticalAlignment="Center" Fill="{ThemeResource TextFillColorTertiaryBrush}" />
+                                                    <TextBlock
+                                                        Text="{Binding StatusChipLabel}"
+                                                        FontSize="12"
+                                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                                                </StackPanel>
+                                            </Border>
+                                            <Border
+                                                HorizontalAlignment="Left"
+                                                Padding="7,3,10,3"
+                                                CornerRadius="4"
+                                                Background="{ThemeResource SystemFillColorCautionBackgroundBrush}"
+                                                Visibility="{Binding CautionToneVisibility}">
+                                                <StackPanel Orientation="Horizontal" Spacing="5">
+                                                    <FontIcon
+                                                        Glyph="&#xE7BA;"
+                                                        FontSize="12"
+                                                        VerticalAlignment="Center"
+                                                        Foreground="{ThemeResource SystemFillColorCautionBrush}" />
+                                                    <TextBlock Text="{Binding StatusChipLabel}" FontSize="12" />
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+
                                         <Button
                                             Grid.Column="3"
-                                            Style="{StaticResource FlowSubtleButtonStyle}"
+                                            MinHeight="32"
+                                            Padding="12,5"
+                                            CornerRadius="6"
                                             VerticalAlignment="Center"
                                             Content="配置"
                                             Click="ConfigureGameLibraryItemButton_Click" />
@@ -634,6 +792,7 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+                    </StackPanel>
                 </Grid>
             </StackPanel>
 

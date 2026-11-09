@@ -5,6 +5,8 @@ public sealed record AppSettingsSnapshot(
     GameplayKeyboardBaselineSettings GameplayKeyboardBaseline,
     InputStatusOverlaySettings InputStatusOverlay)
 {
+    public AppStateMemorySettings AppStateMemory { get; init; } = AppStateMemorySettings.Default;
+
     public static AppSettingsSnapshot Default { get; } =
         new(
             GameplayHotkeyGuardSettings.Default,

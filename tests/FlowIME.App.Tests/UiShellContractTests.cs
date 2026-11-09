@@ -60,7 +60,9 @@ public sealed class UiShellContractTests
 
         Assert.Contains("StartupToggle", xaml, StringComparison.Ordinal);
         Assert.Contains("StartupToggle_Toggled", xaml, StringComparison.Ordinal);
-        Assert.Contains("关闭窗口后继续运行", xaml, StringComparison.Ordinal);
+        // Close-to-tray is always on, so it is described rather than shown as a locked switch.
+        Assert.Contains("继续在系统托盘运行", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("TrayToggle", xaml, StringComparison.Ordinal);
         Assert.DoesNotContain("StartupTask 后启用", xaml, StringComparison.Ordinal);
     }
 
@@ -182,10 +184,37 @@ public sealed class UiShellContractTests
         Assert.Contains("TaskbarCreated", source, StringComparison.Ordinal);
         Assert.Contains("WTSRegisterSessionNotification", source, StringComparison.Ordinal);
         Assert.Contains("SystemRecoverySignal", source, StringComparison.Ordinal);
-        Assert.Contains("打开 FlowIME", source, StringComparison.Ordinal);
-        Assert.Contains("暂停自动切换", source, StringComparison.Ordinal);
-        Assert.Contains("恢复自动切换", source, StringComparison.Ordinal);
-        Assert.Contains("退出", source, StringComparison.Ordinal);
+
+        var menu = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Services", "TrayMenu.cs"));
+        Assert.Contains("打开 FlowIME", menu, StringComparison.Ordinal);
+        Assert.Contains("暂停自动切换", menu, StringComparison.Ordinal);
+        Assert.Contains("恢复自动切换", menu, StringComparison.Ordinal);
+        Assert.Contains("退出", menu, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Tray_right_click_opens_the_fluent_flyout_and_keeps_the_native_menu_as_fallback()
+    {
+        var root = FindRepositoryRoot();
+        var appRoot = Path.Combine(root, "src", "FlowIME.App");
+        var tray = File.ReadAllText(Path.Combine(appRoot, "Services", "TrayIconService.cs"));
+        var app = File.ReadAllText(Path.Combine(appRoot, "App.xaml.cs"));
+        var flyout = File.ReadAllText(Path.Combine(appRoot, "Windowing", "TrayFlyoutWindow.xaml"));
+        var flyoutCode = File.ReadAllText(Path.Combine(appRoot, "Windowing", "TrayFlyoutWindow.xaml.cs"));
+
+        Assert.Contains("ShowFlyoutOrMenu(hwnd)", tray, StringComparison.Ordinal);
+        Assert.Contains("_trayIcon?.ShowMenu()", app, StringComparison.Ordinal);
+        Assert.Contains("<DesktopAcrylicBackdrop />", flyout, StringComparison.Ordinal);
+        Assert.Contains("IsShownInSwitchers = false", flyoutCode, StringComparison.Ordinal);
+        Assert.Contains("WindowActivationState.Deactivated", flyoutCode, StringComparison.Ordinal);
+        Assert.Contains("VirtualKey.Escape", flyoutCode, StringComparison.Ordinal);
+        Assert.Contains("AnimationsEnabled", flyoutCode, StringComparison.Ordinal);
+
+        // Every tray-menu command is reachable from the flyout too.
+        foreach (var command in Enum.GetNames<FlowIME.App.Services.TrayCommand>().Where(static name => name != "None"))
+        {
+            Assert.Contains($"Tag=\"{command}\"", flyout, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -418,9 +447,10 @@ public sealed class UiShellContractTests
         var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "RulesPage.xaml.cs"));
 
         Assert.Contains("应用规则始终拥有更高优先级", xaml, StringComparison.Ordinal);
-        Assert.Contains("RuleFeedbackBar", xaml, StringComparison.Ordinal);
+        Assert.DoesNotContain("RuleFeedbackBar", xaml, StringComparison.Ordinal);
         Assert.Contains("NoSearchResultsState", xaml, StringComparison.Ordinal);
         Assert.Contains("ShowFeedback", source, StringComparison.Ordinal);
+        Assert.Contains("ShowToast", source, StringComparison.Ordinal);
         Assert.Contains("ShowFailure", source, StringComparison.Ordinal);
     }
 
@@ -850,7 +880,8 @@ public sealed class UiShellContractTests
         var source = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "Views", "HomePage.xaml.cs"));
         var viewModel = File.ReadAllText(Path.Combine(root, "src", "FlowIME.App", "ViewModels", "HomeViewModel.cs"));
 
-        Assert.Contains("HomeFeedbackBar", home, StringComparison.Ordinal);
+        Assert.DoesNotContain("HomeFeedbackBar", home, StringComparison.Ordinal);
+        Assert.Contains("ShowToast", source, StringComparison.Ordinal);
         Assert.Contains("当前决策", home, StringComparison.Ordinal);
         Assert.Contains("FlowDecisionRowStyle", home, StringComparison.Ordinal);
         Assert.Contains("FlowDecisionValueStyle", appXaml, StringComparison.Ordinal);

@@ -1,9 +1,17 @@
 using FlowIME.App.Services;
 using FlowIME.Core.Context;
 using FlowIME.Core.Models;
+using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Media;
 
 namespace FlowIME.App.ViewModels;
+
+internal enum GameStatusTone
+{
+    Success,
+    Neutral,
+    Caution
+}
 
 /// <summary>
 /// A game-library row merged from local stores, profiles and recent detection.
@@ -39,6 +47,74 @@ internal sealed record GameTextEntryTargetItemViewModel(
         ? "默认：打开 Enter · 发送 Enter · 取消 Esc"
         : $"打开 {GameTextEntryKeyGestureParser.FormatList(ExistingProfile.EnterGestures)} · " +
           $"发送/取消 {GameTextEntryKeyGestureParser.FormatList(ExistingProfile.ExitGestures)}";
+
+    /// <summary>Short chat state for the aligned status column of the game list.</summary>
+    public string StatusChipLabel => StatusTone switch
+    {
+        GameStatusTone.Caution => "需关联 EXE",
+        GameStatusTone.Success => "聊天已开启",
+        _ => ExistingProfile switch
+        {
+            null => CanConfigureDirectly ? "未配置" : "需关联程序",
+            { Classification: GameplayClassification.NotGame } => "已排除",
+            _ => "聊天已停用"
+        }
+    };
+
+    // Amber is kept for a saved profile that cannot match its game; a scanned
+    // game that is simply not set up yet stays neutral.
+    public GameStatusTone StatusTone => ExistingProfile is { } profile
+        ? !GameProfileTargetValidator.HasReliableTarget(profile)
+            ? GameStatusTone.Caution
+            : profile.Classification != GameplayClassification.NotGame && profile.Enabled
+                ? GameStatusTone.Success
+                : GameStatusTone.Neutral
+        : GameStatusTone.Neutral;
+
+    public Visibility SuccessToneVisibility => ToneVisibility(GameStatusTone.Success);
+
+    public Visibility NeutralToneVisibility => ToneVisibility(GameStatusTone.Neutral);
+
+    public Visibility CautionToneVisibility => ToneVisibility(GameStatusTone.Caution);
+
+    /// <summary>Quiet details next to the name: how the game is recognized and where it came from.</summary>
+    public string MetaLabel => string.Join(
+        " · ",
+        new[]
+        {
+            ExistingProfile?.Classification switch
+            {
+                null => null,
+                GameplayClassification.NotGame => "不按游戏处理",
+                GameplayClassification.Automatic => "自动识别",
+                _ => "指定游戏"
+            },
+            ExistingProfile?.DetectionMode.HasFlag(GameTextEntryDetectionMode.PointerMenu) == true ? "菜单可输入" : null,
+            IsRecent ? "最近检测" : null,
+            StringComparer.Ordinal.Equals(SourceLabel, "最近检测") ? null : SourceLabel
+        }.Where(static part => !string.IsNullOrEmpty(part)));
+
+    /// <summary>Keys that open the game chat, shown as keycaps.</summary>
+    public IReadOnlyList<string> EnterKeys => ExistingProfile is { } profile
+        ? (profile.EnterGestures ?? []).Select(GameTextEntryKeyGestureParser.Format).ToArray()
+        : ["Enter"];
+
+    /// <summary>Keys that send or cancel the game chat, shown as keycaps.</summary>
+    public IReadOnlyList<string> ExitKeys => ExistingProfile is { } profile
+        ? (profile.ExitGestures ?? []).Select(GameTextEntryKeyGestureParser.Format).ToArray()
+        : ["Enter", "Esc"];
+
+    /// <summary>
+    /// Keys are shown only for games recognized by their chat hotkeys; the rest
+    /// (not set up, or menu mode only) stay on one line.
+    /// </summary>
+    public Visibility KeysVisibility =>
+        ExistingProfile?.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile) == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+
+    private Visibility ToneVisibility(GameStatusTone tone) =>
+        StatusTone == tone ? Visibility.Visible : Visibility.Collapsed;
 
     public ImageSource? Icon { get; set; }
 

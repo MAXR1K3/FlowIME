@@ -17,15 +17,26 @@ internal sealed class TrayIconService : IDisposable
     private const uint WmRButtonUp = 0x0205;
     private const uint WmApp = 0x8000;
     private const uint CallbackMessage = WmApp + 0x31;
+    private const uint ShowNotificationMessage = WmApp + 0x32;
+    private const uint UpdateTooltipMessage = WmApp + 0x33;
+    private const uint ShowMenuMessage = WmApp + 0x34;
 
     private const uint NimAdd = 0x00000000;
+    private const uint NimModify = 0x00000001;
     private const uint NimDelete = 0x00000002;
     private const uint NimSetFocus = 0x00000003;
     private const uint NifMessage = 0x00000001;
     private const uint NifIcon = 0x00000002;
     private const uint NifTip = 0x00000004;
+    private const uint NifInfo = 0x00000010;
+    private const uint NifRealtime = 0x00000040;
+    private const uint NiifNoSound = 0x00000010;
+    private const uint NiifRespectQuietTime = 0x00000080;
 
     private const uint MfString = 0x00000000;
+    private const uint MfByCommand = 0x00000000;
+    private const uint MfGrayed = 0x00000001;
+    private const uint MfPopup = 0x00000010;
     private const uint MfSeparator = 0x00000800;
     private const uint TpmRightButton = 0x0002;
     private const uint TpmReturnCmd = 0x0100;
@@ -33,17 +44,25 @@ internal sealed class TrayIconService : IDisposable
     private const uint LrLoadFromFile = 0x0010;
     private const uint LrDefaultSize = 0x0040;
 
-    private const uint OpenCommand = 1001;
-    private const uint ToggleAutomationCommand = 1002;
-    private const uint ExitCommand = 1003;
     private const uint NotifyForThisSession = 0;
+    private const int PreferredAppModeAllowDark = 1;
+    private const string DefaultTooltip = "FlowIME · 输入状态自动化";
 
+    private static readonly IReadOnlyList<TrayMenuItem> FallbackMenu =
+    [
+        new("打开 FlowIME", TrayCommand.Open, IsDefault: true),
+        TrayMenuItem.Separator,
+        new("退出 FlowIME", TrayCommand.Exit)
+    ];
 
     private readonly Action _openRequested;
-    private readonly Func<bool> _isAutomationEnabled;
-    private readonly Action _toggleAutomationRequested;
     private readonly Action<string> _systemRecoveryRequested;
-    private readonly Action _exitRequested;
+    private readonly Func<IReadOnlyList<TrayMenuItem>> _menuItems;
+    private readonly Action<TrayCommand> _commandRequested;
+    private readonly Func<int, int, bool> _flyoutRequested;
+    private readonly object _notificationSync = new();
+    private volatile string _tooltip = DefaultTooltip;
+    private (string Title, string Message)? _pendingNotification;
     private readonly Thread _thread;
     private readonly ManualResetEventSlim _started = new(false);
     private readonly string _windowClassName;
@@ -57,10 +76,10 @@ internal sealed class TrayIconService : IDisposable
 
     internal TrayIconService(
         Action openRequested,
-        Func<bool> isAutomationEnabled,
-        Action toggleAutomationRequested,
         Action<string> systemRecoveryRequested,
-        Action exitRequested)
+        Func<IReadOnlyList<TrayMenuItem>> menuItems,
+        Action<TrayCommand> commandRequested,
+        Func<int, int, bool> flyoutRequested)
     {
         if (!OperatingSystem.IsWindows())
         {
@@ -69,13 +88,11 @@ internal sealed class TrayIconService : IDisposable
         }
 
         _openRequested = openRequested ?? throw new ArgumentNullException(nameof(openRequested));
-        _isAutomationEnabled = isAutomationEnabled ??
-            throw new ArgumentNullException(nameof(isAutomationEnabled));
-        _toggleAutomationRequested = toggleAutomationRequested ??
-            throw new ArgumentNullException(nameof(toggleAutomationRequested));
         _systemRecoveryRequested = systemRecoveryRequested ??
             throw new ArgumentNullException(nameof(systemRecoveryRequested));
-        _exitRequested = exitRequested ?? throw new ArgumentNullException(nameof(exitRequested));
+        _menuItems = menuItems ?? throw new ArgumentNullException(nameof(menuItems));
+        _commandRequested = commandRequested ?? throw new ArgumentNullException(nameof(commandRequested));
+        _flyoutRequested = flyoutRequested ?? throw new ArgumentNullException(nameof(flyoutRequested));
         _windowClassName = $"FlowIME.Tray.{Environment.ProcessId}";
 
         _thread = new Thread(ThreadMain)
@@ -128,6 +145,7 @@ internal sealed class TrayIconService : IDisposable
             }
 
             _windowProc = WindowProc;
+            AllowDarkMenus();
 
             var windowClass = new WndClassEx
             {
@@ -248,6 +266,26 @@ internal sealed class TrayIconService : IDisposable
             return message == SystemRecoverySignal.WmPowerBroadcast ? 1 : 0;
         }
 
+        if (message == ShowNotificationMessage)
+        {
+            ShowPendingNotification();
+            return 0;
+        }
+
+        if (message == ShowMenuMessage)
+        {
+            ShowContextMenu(hwnd);
+            return 0;
+        }
+
+        if (message == UpdateTooltipMessage)
+        {
+            var data = CreateIconData();
+            data.UFlags = NifTip;
+            _ = Shell_NotifyIconW(NimModify, ref data);
+            return 0;
+        }
+
         if (message == CallbackMessage)
         {
             var mouseMessage = unchecked((uint)lParam.ToInt64());
@@ -257,7 +295,7 @@ internal sealed class TrayIconService : IDisposable
                     SafeInvoke(_openRequested);
                     return 0;
                 case WmRButtonUp:
-                    ShowContextMenu(hwnd);
+                    ShowFlyoutOrMenu(hwnd);
                     return 0;
             }
         }
@@ -287,6 +325,44 @@ internal sealed class TrayIconService : IDisposable
         }
     }
 
+    private void ShowFlyoutOrMenu(nint hwnd)
+    {
+        if (!GetCursorPos(out var point))
+        {
+            return;
+        }
+
+        // The shell lets the icon owner take the foreground for this click.
+        // Claiming it here lets the WinUI flyout activate on the UI thread.
+        _ = SetForegroundWindow(hwnd);
+        bool requested;
+        try
+        {
+            requested = _flyoutRequested(point.X, point.Y);
+        }
+        catch
+        {
+            requested = false;
+        }
+
+        if (!requested)
+        {
+            ShowContextMenu(hwnd);
+        }
+    }
+
+    /// <summary>
+    /// Shows the native menu at the pointer. Used when the WinUI flyout cannot
+    /// be shown. Safe to call from any thread.
+    /// </summary>
+    internal void ShowMenu()
+    {
+        if (!_disposed && _window != 0)
+        {
+            _ = PostMessageW(_window, ShowMenuMessage, 0, 0);
+        }
+    }
+
     private void ShowContextMenu(nint hwnd)
     {
         var menu = CreatePopupMenu();
@@ -297,20 +373,16 @@ internal sealed class TrayIconService : IDisposable
 
         try
         {
-            _ = AppendMenuW(menu, MfString, OpenCommand, "打开 FlowIME");
-            _ = AppendMenuW(
-                menu,
-                MfString,
-                ToggleAutomationCommand,
-                GetAutomationToggleLabel());
-            _ = AppendMenuW(menu, MfSeparator, 0, null);
-            _ = AppendMenuW(menu, MfString, ExitCommand, "退出");
+            // Submenus are owned by the root menu, so DestroyMenu below frees them too.
+            var commands = new Dictionary<uint, TrayCommand>();
+            AppendItems(menu, GetMenuItems(), commands);
 
             if (!GetCursorPos(out var point))
             {
                 return;
             }
 
+            FlushMenuThemes();
             _ = SetForegroundWindow(hwnd);
             var selected = TrackPopupMenu(
                 menu,
@@ -321,17 +393,9 @@ internal sealed class TrayIconService : IDisposable
                 hwnd,
                 0);
 
-            switch (selected)
+            if (commands.TryGetValue(selected, out var command))
             {
-                case OpenCommand:
-                    SafeInvoke(_openRequested);
-                    break;
-                case ToggleAutomationCommand:
-                    SafeInvoke(_toggleAutomationRequested);
-                    break;
-                case ExitCommand:
-                    SafeInvoke(_exitRequested);
-                    break;
+                SafeInvoke(() => _commandRequested(command));
             }
 
             // Required by the notification-area context-menu guidance so a
@@ -346,17 +410,141 @@ internal sealed class TrayIconService : IDisposable
         }
     }
 
-    private string GetAutomationToggleLabel()
+    private static void AppendItems(
+        nint menu,
+        IReadOnlyList<TrayMenuItem> items,
+        Dictionary<uint, TrayCommand> commands)
+    {
+        foreach (var item in items)
+        {
+            if (item.IsSeparator)
+            {
+                _ = AppendMenuW(menu, MfSeparator, 0, null);
+                continue;
+            }
+
+            var grayed = item.IsEnabled ? 0 : MfGrayed;
+            if (item.Children is { Count: > 0 } children)
+            {
+                var submenu = CreatePopupMenu();
+                if (submenu == 0)
+                {
+                    continue;
+                }
+
+                AppendItems(submenu, children, commands);
+                _ = AppendMenuW(menu, MfString | MfPopup | grayed, (nuint)submenu, item.Label);
+                continue;
+            }
+
+            // Ids start at 1: TrackPopupMenu returns 0 when the menu is dismissed.
+            var id = checked((uint)commands.Count + 1);
+            commands[id] = item.Command;
+            _ = AppendMenuW(menu, MfString | grayed, id, item.Label);
+            if (item.IsChecked)
+            {
+                _ = CheckMenuRadioItem(menu, id, id, id, MfByCommand);
+            }
+
+            if (item.IsDefault)
+            {
+                _ = SetMenuDefaultItem(menu, id, 0);
+            }
+        }
+    }
+
+    private IReadOnlyList<TrayMenuItem> GetMenuItems()
     {
         try
         {
-            return _isAutomationEnabled() ? "暂停自动切换" : "恢复自动切换";
+            return _menuItems();
         }
         catch
         {
-            return "暂停自动切换";
+            return FallbackMenu;
         }
     }
+
+    /// <summary>
+    /// Updates the text shown when hovering the tray icon. Safe to call from any thread.
+    /// </summary>
+    internal void SetTooltip(string text)
+    {
+        _tooltip = Truncate(text, 127);
+        if (!_disposed && _window != 0)
+        {
+            _ = PostMessageW(_window, UpdateTooltipMessage, 0, 0);
+        }
+    }
+
+    // Lets native popup menus follow the Windows light/dark app theme. The
+    // uxtheme entry points are undocumented ordinals, so any failure simply
+    // keeps the classic light menu.
+    private static void AllowDarkMenus()
+    {
+        try
+        {
+            _ = SetPreferredAppMode(PreferredAppModeAllowDark);
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+        }
+    }
+
+    private static void FlushMenuThemes()
+    {
+        try
+        {
+            FlushMenuThemesNative();
+        }
+        catch (Exception ex) when (ex is EntryPointNotFoundException or DllNotFoundException)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Shows a quiet, transient notification from the tray icon. Safe to call
+    /// from any thread; the latest request wins.
+    /// </summary>
+    internal void ShowNotification(string title, string message)
+    {
+        if (_disposed || _window == 0)
+        {
+            return;
+        }
+
+        lock (_notificationSync)
+        {
+            _pendingNotification = (title, message);
+        }
+
+        _ = PostMessageW(_window, ShowNotificationMessage, 0, 0);
+    }
+
+    private void ShowPendingNotification()
+    {
+        (string Title, string Message)? notification;
+        lock (_notificationSync)
+        {
+            notification = _pendingNotification;
+            _pendingNotification = null;
+        }
+
+        if (notification is not { } value)
+        {
+            return;
+        }
+
+        var data = CreateIconData();
+        data.UFlags = NifInfo | NifRealtime;
+        data.SzInfoTitle = Truncate(value.Title, 63);
+        data.SzInfo = Truncate(value.Message, 255);
+        data.DwInfoFlags = NiifNoSound | NiifRespectQuietTime;
+        _ = Shell_NotifyIconW(NimModify, ref data);
+    }
+
+    private static string Truncate(string value, int maxLength) =>
+        value.Length <= maxLength ? value : value[..maxLength];
 
     private void AddIcon(bool throwOnFailure)
     {
@@ -397,7 +585,7 @@ internal sealed class TrayIconService : IDisposable
             UFlags = NifMessage | NifIcon | NifTip,
             UCallbackMessage = CallbackMessage,
             HIcon = _icon,
-            SzTip = "FlowIME · 输入状态自动化",
+            SzTip = _tooltip,
             SzInfo = string.Empty,
             SzInfoTitle = string.Empty
         };
@@ -603,6 +791,20 @@ internal sealed class TrayIconService : IDisposable
         int reserved,
         nint hwnd,
         nint rect);
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CheckMenuRadioItem(nint menu, uint first, uint last, uint check, uint flags);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetMenuDefaultItem(nint menu, uint item, uint byPosition);
+
+    [DllImport("uxtheme.dll", EntryPoint = "#135")]
+    private static extern int SetPreferredAppMode(int mode);
+
+    [DllImport("uxtheme.dll", EntryPoint = "#136")]
+    private static extern void FlushMenuThemesNative();
+
     [DllImport("wtsapi32.dll", SetLastError = true, ExactSpelling = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool WTSRegisterSessionNotification(nint window, uint flags);

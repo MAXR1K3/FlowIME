@@ -108,8 +108,8 @@ public sealed partial class HomePage : Page
         AutomationToggle.IsEnabled = false;
         try
         {
+            // The label beside the switch already confirms the new state.
             await _services.SetAutomationEnabledAsync(_viewModel.IsAutomationEnabled);
-            ShowFeedback("已保存", _services.IsAutomationEnabled ? "自动切换已开启。" : "自动切换已暂停。", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -211,15 +211,6 @@ public sealed partial class HomePage : Page
             : Visibility.Visible;
     }
 
-    private void HomeFeedbackBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
-        HomeFeedbackBar.Visibility = Visibility.Collapsed;
-
-    private void ShowFeedback(string title, string message, InfoBarSeverity severity)
-    {
-        HomeFeedbackBar.Visibility = Visibility.Visible;
-        HomeFeedbackBar.Title = title;
-        HomeFeedbackBar.Message = message;
-        HomeFeedbackBar.Severity = severity;
-        HomeFeedbackBar.IsOpen = true;
-    }
+    private static void ShowFeedback(string title, string message, InfoBarSeverity severity) =>
+        ((App)Application.Current).MainWindow?.ShowToast(severity, title, message);
 }

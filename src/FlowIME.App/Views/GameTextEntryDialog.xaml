@@ -98,6 +98,25 @@
                                 VerticalAlignment="Center"
                                 Toggled="HotkeyProfileToggle_Toggled" />
                         </Grid>
+
+                        <Rectangle Height="1" Fill="{ThemeResource DividerStrokeColorDefaultBrush}" />
+
+                        <Grid Padding="14" ColumnSpacing="16">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Spacing="2">
+                                <TextBlock Text="菜单中允许输入法" FontWeight="SemiBold" TextWrapping="Wrap" />
+                                <TextBlock
+                                    Text="游戏显示鼠标指针时（菜单、改名、暂停）切换到下方的聊天输入状态；指针隐藏、回到对局后恢复美式键盘。"
+                                    Style="{StaticResource FlowTertiaryTextStyle}" />
+                            </StackPanel>
+                            <ToggleSwitch
+                                x:Name="PointerMenuToggle" Style="{StaticResource FlowToggleSwitchStyle}" AutomationProperties.Name="菜单中允许输入法"
+                                Grid.Column="1"
+                                VerticalAlignment="Center" />
+                        </Grid>
                     </StackPanel>
                 </Border>
             </StackPanel>

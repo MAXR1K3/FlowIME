@@ -1,0 +1,287 @@
+<Window
+    x:Class="FlowIME.App.Windowing.TrayFlyoutWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="FlowIME">
+
+    <Window.SystemBackdrop>
+        <DesktopAcrylicBackdrop />
+    </Window.SystemBackdrop>
+
+    <Grid x:Name="FlyoutRoot" Width="328" VerticalAlignment="Top" KeyDown="FlyoutRoot_KeyDown">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <!-- Hover and press read clearly on acrylic, in FlowIME's warm accent;
+                     the chosen quick rule uses the FlowIME accent, not the system one. -->
+                <ResourceDictionary.ThemeDictionaries>
+                    <ResourceDictionary x:Key="Default">
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#40D8B394" />
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#26D8B394" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#99D8B394" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#CCD8B394" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#40D8B394" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#26D8B394" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushPointerOver" Color="#99D8B394" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushPressed" Color="#CCD8B394" />
+                        <SolidColorBrush x:Key="SubtleButtonBackgroundPointerOver" Color="#24D8B394" />
+                        <SolidColorBrush x:Key="SubtleButtonBackgroundPressed" Color="#14D8B394" />
+                        <SolidColorBrush x:Key="HyperlinkButtonBackgroundPointerOver" Color="#24D8B394" />
+                        <SolidColorBrush x:Key="HyperlinkButtonBackgroundPressed" Color="#14D8B394" />
+                        <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="AccentFillColorDefaultBrush" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="AccentButtonBackgroundPointerOver" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="AccentButtonBackgroundPressed" />
+                        <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                        <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                        <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+                    </ResourceDictionary>
+                    <ResourceDictionary x:Key="Light">
+                        <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="#FFF6EEE5" />
+                        <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="#FFECE0D2" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="#99795139" />
+                        <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="#CC795139" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundPointerOver" Color="#FFF6EEE5" />
+                        <SolidColorBrush x:Key="ToggleButtonBackgroundPressed" Color="#FFECE0D2" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushPointerOver" Color="#99795139" />
+                        <SolidColorBrush x:Key="ToggleButtonBorderBrushPressed" Color="#CC795139" />
+                        <SolidColorBrush x:Key="SubtleButtonBackgroundPointerOver" Color="#1F795139" />
+                        <SolidColorBrush x:Key="SubtleButtonBackgroundPressed" Color="#33795139" />
+                        <SolidColorBrush x:Key="HyperlinkButtonBackgroundPointerOver" Color="#1F795139" />
+                        <SolidColorBrush x:Key="HyperlinkButtonBackgroundPressed" Color="#33795139" />
+                        <StaticResource x:Key="ToggleButtonBackgroundChecked" ResourceKey="AccentFillColorDefaultBrush" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="AccentButtonBackgroundPointerOver" />
+                        <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="AccentButtonBackgroundPressed" />
+                        <StaticResource x:Key="ToggleButtonForegroundChecked" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                        <StaticResource x:Key="ToggleButtonForegroundCheckedPointerOver" ResourceKey="TextOnAccentFillColorPrimaryBrush" />
+                        <StaticResource x:Key="ToggleButtonForegroundCheckedPressed" ResourceKey="TextOnAccentFillColorSecondaryBrush" />
+                    </ResourceDictionary>
+                </ResourceDictionary.ThemeDictionaries>
+
+                <Style x:Key="FlyoutCardStyle" TargetType="Border">
+                    <Setter Property="Padding" Value="12" />
+                    <Setter Property="Background" Value="{ThemeResource CardBackgroundFillColorDefaultBrush}" />
+                    <Setter Property="BorderBrush" Value="{ThemeResource CardStrokeColorDefaultBrush}" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="CornerRadius" Value="8" />
+                </Style>
+                <Style x:Key="FlyoutCaptionStyle" TargetType="TextBlock">
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="Foreground" Value="{ThemeResource TextFillColorTertiaryBrush}" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                </Style>
+                <Style x:Key="FlyoutLinkStyle" TargetType="HyperlinkButton">
+                    <Setter Property="Padding" Value="6,2" />
+                    <Setter Property="MinHeight" Value="0" />
+                    <Setter Property="FontSize" Value="12" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                </Style>
+            </ResourceDictionary>
+        </Grid.Resources>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <Grid.RenderTransform>
+            <TranslateTransform x:Name="FlyoutOffset" />
+        </Grid.RenderTransform>
+
+        <StackPanel Padding="16" Spacing="12">
+            <!-- Header: brand and live automation state. -->
+            <Grid ColumnSpacing="12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image Width="32" Height="32" Source="/Assets/Brand/Generated/FlowIME.Mark.44.png" />
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock FontSize="14" FontWeight="SemiBold" Text="FlowIME" />
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                        <Grid Width="8" Height="8" VerticalAlignment="Center">
+                            <Ellipse x:Name="RunningDot" Fill="{ThemeResource SystemFillColorSuccessBrush}" />
+                            <Ellipse x:Name="PausedDot" Fill="{ThemeResource SystemFillColorCautionBrush}" />
+                        </Grid>
+                        <TextBlock x:Name="StatusText"
+                                   FontSize="12"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </StackPanel>
+            </Grid>
+
+            <!-- Quick rule for the application the user just left. -->
+            <Border Style="{StaticResource FlyoutCardStyle}">
+                <StackPanel Spacing="10">
+                    <Grid MinHeight="22">
+                        <TextBlock Style="{StaticResource FlyoutCaptionStyle}" Text="最近使用的应用" />
+                        <StackPanel x:Name="TargetLinks"
+                                    Margin="0,0,-6,0"
+                                    HorizontalAlignment="Right"
+                                    Orientation="Horizontal">
+                            <HyperlinkButton x:Name="RemoveRuleButton"
+                                             Click="Command_Click"
+                                             Content="移除规则"
+                                             Style="{StaticResource FlyoutLinkStyle}"
+                                             Tag="QuickRuleRemove" />
+                            <HyperlinkButton Click="Command_Click"
+                                             Content="管理规则"
+                                             Style="{StaticResource FlyoutLinkStyle}"
+                                             Tag="OpenRules" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock x:Name="NoTargetText"
+                               FontSize="13"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               Text="切换到其他应用后，可以在这里直接为它设置规则。"
+                               TextWrapping="Wrap" />
+
+                    <StackPanel x:Name="TargetPanel" Spacing="12">
+                        <Grid ColumnSpacing="10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Grid Width="28" Height="28">
+                                <FontIcon x:Name="TargetFallbackIcon"
+                                          FontSize="18"
+                                          Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                          Glyph="&#xECAA;" />
+                                <Image x:Name="TargetIcon" Width="28" Height="28" />
+                            </Grid>
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <TextBlock x:Name="TargetNameText"
+                                           FontSize="14"
+                                           FontWeight="SemiBold"
+                                           MaxLines="1"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="TargetRuleText"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid x:Name="QuickRuleChoices" ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <ToggleButton x:Name="ChineseChoice"
+                                          HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="进入时切换到中文"
+                                          Click="QuickRuleChoice_Click"
+                                          Content="中文"
+                                          Tag="QuickRuleChinese" />
+                            <ToggleButton x:Name="EnglishChoice"
+                                          Grid.Column="1"
+                                          HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="进入时切换到英文"
+                                          Click="QuickRuleChoice_Click"
+                                          Content="英文"
+                                          Tag="QuickRuleEnglish" />
+                            <ToggleButton x:Name="KeepChoice"
+                                          Grid.Column="2"
+                                          HorizontalAlignment="Stretch"
+                                          AutomationProperties.Name="进入时保持不变"
+                                          Click="QuickRuleChoice_Click"
+                                          Content="保持不变"
+                                          Tag="QuickRuleKeep" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Pause or resume automation. -->
+            <Border Style="{StaticResource FlyoutCardStyle}">
+                <Grid>
+                    <StackPanel x:Name="PausePanel" Spacing="10">
+                        <TextBlock MinHeight="22" Style="{StaticResource FlyoutCaptionStyle}" Text="暂停自动切换" />
+                        <Grid ColumnSpacing="6">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <Button HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="暂停 15 分钟"
+                                    Click="Command_Click"
+                                    Content="15 分钟"
+                                    Tag="PauseFifteenMinutes" />
+                            <Button Grid.Column="1"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="暂停 1 小时"
+                                    Click="Command_Click"
+                                    Content="1 小时"
+                                    Tag="PauseOneHour" />
+                            <Button Grid.Column="2"
+                                    HorizontalAlignment="Stretch"
+                                    AutomationProperties.Name="暂停，直到手动恢复"
+                                    Click="Command_Click"
+                                    Content="不限时"
+                                    Tag="PauseUntilResumed" />
+                        </Grid>
+                    </StackPanel>
+
+                    <Grid x:Name="ResumePanel" ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon VerticalAlignment="Center"
+                                  FontSize="20"
+                                  Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                                  Glyph="&#xE769;" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock FontSize="14" FontWeight="SemiBold" Text="已暂停" />
+                            <TextBlock x:Name="ResumeHintText"
+                                       FontSize="12"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                        </StackPanel>
+                        <Button x:Name="ResumeButton"
+                                Grid.Column="2"
+                                VerticalAlignment="Center"
+                                Click="Command_Click"
+                                Content="恢复"
+                                Style="{StaticResource AccentButtonStyle}"
+                                Tag="Resume" />
+                    </Grid>
+                </Grid>
+            </Border>
+        </StackPanel>
+
+        <!-- Footer, set apart like the Windows quick settings footer. -->
+        <Grid Grid.Row="1"
+              Padding="8"
+              Background="{ThemeResource LayerOnAcrylicFillColorDefaultBrush}"
+              BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}"
+              BorderThickness="0,1,0,0">
+            <Button x:Name="OpenButton"
+                    HorizontalAlignment="Left"
+                    Click="Command_Click"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Tag="Open">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="16" Glyph="&#xE737;" />
+                    <TextBlock Text="打开 FlowIME" />
+                </StackPanel>
+            </Button>
+            <Button HorizontalAlignment="Right"
+                    AutomationProperties.Name="退出 FlowIME"
+                    Click="Command_Click"
+                    Style="{StaticResource SubtleButtonStyle}"
+                    Tag="Exit"
+                    ToolTipService.ToolTip="退出 FlowIME">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon FontSize="16" Glyph="&#xE7E8;" />
+                    <TextBlock Text="退出" />
+                </StackPanel>
+            </Button>
+        </Grid>
+
+        <!-- Flyout edge, drawn inside the rounded window region. -->
+        <Border Grid.RowSpan="2"
+                BorderBrush="{ThemeResource SurfaceStrokeColorFlyoutBrush}"
+                BorderThickness="1"
+                CornerRadius="8"
+                IsHitTestVisible="False" />
+    </Grid>
+</Window>

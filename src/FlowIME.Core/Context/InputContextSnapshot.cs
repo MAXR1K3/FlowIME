@@ -10,7 +10,8 @@ public enum InputContextTrigger
     SystemRecovery,
     GameplayExit,
     GameTextEntryChanged,
-    RuleChanged
+    RuleChanged,
+    TextEntryStarted
 }
 
 public sealed record ContextDetectionRequest(

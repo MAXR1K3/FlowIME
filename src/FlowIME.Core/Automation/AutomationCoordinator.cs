@@ -23,6 +23,8 @@ public sealed class AutomationCoordinator : IAsyncDisposable
     private readonly object _sync = new();
     private readonly IForegroundWindowSource _foregroundSource;
     private readonly IInputFocusSource? _focusSource;
+    private readonly ITextEntrySignalSource? _caretSource;
+    private readonly ITextEntryProbe? _textEntryProbe;
     private readonly IWindowResolver _windowResolver;
     private readonly IRuleEngine _ruleEngine;
     private readonly IRuleRepository _ruleRepository;
@@ -34,8 +36,12 @@ public sealed class AutomationCoordinator : IAsyncDisposable
     private readonly AutomationOptions _options;
     private readonly IAutomationDelay _delay;
     private readonly uint _ignoredProcessId;
+    private readonly Dictionary<uint, string> _inaccessibleProcesses = [];
+    private readonly ApplicationModeMemory _modeMemory;
 
     private Operation? _currentOperation;
+    private nint _awaitingTextEntryHwnd;
+    private nint _modeMemorySettledHwnd;
     private long _generation;
     private bool _executionEnabled = true;
     private bool _started;
@@ -54,11 +60,15 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         IInputContextEngine? contextEngine = null,
         IInputDecisionEngine? decisionEngine = null,
         ManualOverrideGuard? manualOverrideGuard = null,
-        AutomationDecisionJournal? decisionJournal = null)
+        AutomationDecisionJournal? decisionJournal = null,
+        ITextEntryProbe? textEntryProbe = null,
+        ApplicationModeMemory? modeMemory = null)
     {
         _foregroundSource = foregroundSource ??
             throw new ArgumentNullException(nameof(foregroundSource));
         _focusSource = inputFocusSource ?? foregroundSource as IInputFocusSource;
+        _caretSource = foregroundSource as ITextEntrySignalSource;
+        _textEntryProbe = textEntryProbe;
         _windowResolver = windowResolver ??
             throw new ArgumentNullException(nameof(windowResolver));
         _ruleEngine = ruleEngine ??
@@ -71,6 +81,7 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         _decisionEngine = decisionEngine ?? new InputDecisionEngine(_ruleEngine);
         _manualOverrideGuard = manualOverrideGuard ?? new ManualOverrideGuard();
         _decisionJournal = decisionJournal ?? new AutomationDecisionJournal();
+        _modeMemory = modeMemory ?? new ApplicationModeMemory();
         _options = options ?? new AutomationOptions();
         _options.Validate();
         _delay = delay ?? SystemAutomationDelay.Instance;
@@ -126,6 +137,87 @@ public sealed class AutomationCoordinator : IAsyncDisposable
 
     public void ClearManualOverride() => _manualOverrideGuard.Clear();
 
+    /// <summary>
+    /// Called after the user pressed a recognized IME toggle gesture. Waits for the
+    /// target application to process the key, reads the resulting mode and, when it
+    /// is a definite Chinese/English state, keeps it as a manual override for the
+    /// current foreground window until the foreground changes. Focus changes inside
+    /// that window then no longer revert the user's choice.
+    /// </summary>
+    public async ValueTask<ManualOverrideSnapshot?> CaptureManualInputSwitchAsync(
+        string source,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(source);
+
+        lock (_sync)
+        {
+            if (!_started || _disposed || !_executionEnabled)
+            {
+                return null;
+            }
+        }
+
+        nint foreground;
+        try
+        {
+            foreground = _foregroundSource.GetCurrentForegroundWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            return null;
+        }
+
+        if (foreground == 0)
+        {
+            return null;
+        }
+
+        await DelayIfNeededAsync(_options.ManualSwitchSettleDelay, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (_foregroundSource.GetCurrentForegroundWindow() != foreground)
+        {
+            return null;
+        }
+
+        var window = await _windowResolver
+            .ResolveAsync(foreground, cancellationToken)
+            .ConfigureAwait(false);
+        if (window is null ||
+            (_ignoredProcessId != 0 && window.ProcessId == _ignoredProcessId))
+        {
+            return null;
+        }
+
+        var state = await _inputBackend
+            .GetStateAsync(window, cancellationToken)
+            .ConfigureAwait(false);
+        if (state.Mode is not (InputMode.Chinese or InputMode.English) ||
+            _foregroundSource.GetCurrentForegroundWindow() != foreground)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+                $"stage=manual-switch-ignored foreground=0x{foreground:X} " +
+                $"process={window.ProcessName} source={SanitizeTraceValue(source)} " +
+                $"mode={state.Mode}");
+            return null;
+        }
+
+        var snapshot = _manualOverrideGuard.Register(
+            window,
+            state.Mode,
+            source,
+            Timeout.InfiniteTimeSpan);
+        _modeMemory.Record(ApplicationIdentity.FromWindow(window).Key, state.Mode);
+        Trace.WriteLine(
+            $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+            $"stage=manual-switch-observed foreground=0x{foreground:X} " +
+            $"process={window.ProcessName} source={SanitizeTraceValue(source)} " +
+            $"mode={state.Mode}");
+        return snapshot;
+    }
+
     public void Start()
     {
         lock (_sync)
@@ -140,6 +232,11 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             if (_focusSource is not null)
             {
                 _focusSource.InputFocusChanged += OnInputFocusChanged;
+            }
+
+            if (_caretSource is not null)
+            {
+                _caretSource.CaretShown += OnCaretShown;
             }
 
             _started = true;
@@ -161,6 +258,11 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             if (_focusSource is not null)
             {
                 _focusSource.InputFocusChanged -= OnInputFocusChanged;
+            }
+
+            if (_caretSource is not null)
+            {
+                _caretSource.CaretShown -= OnCaretShown;
             }
 
             _started = false;
@@ -339,6 +441,12 @@ public sealed class AutomationCoordinator : IAsyncDisposable
         }
 
         _manualOverrideGuard.NotifyForegroundChanged(args.Hwnd);
+        lock (_sync)
+        {
+            _awaitingTextEntryHwnd = 0;
+            _modeMemorySettledHwnd = 0;
+        }
+
         RequestReapply(
             InputContextTrigger.ForegroundChanged,
             args.Hwnd,
@@ -377,6 +485,42 @@ public sealed class AutomationCoordinator : IAsyncDisposable
 
         RequestReapply(
             InputContextTrigger.FocusChanged,
+            foreground,
+            args.Hwnd,
+            args.Timestamp,
+            args.ObjectId,
+            args.ChildId);
+    }
+
+    /// <summary>
+    /// A caret only matters while the foreground window is waiting for the user
+    /// to enter a text box. Otherwise caret churn (typing, clicking around a
+    /// document) would re-run rules that already succeeded.
+    /// </summary>
+    private void OnCaretShown(
+        object? sender,
+        InputFocusChangedEventArgs args)
+    {
+        nint foreground;
+        try
+        {
+            foreground = _foregroundSource.GetCurrentForegroundWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
+        lock (_sync)
+        {
+            if (foreground == 0 || foreground != _awaitingTextEntryHwnd)
+            {
+                return;
+            }
+        }
+
+        RequestReapply(
+            InputContextTrigger.TextEntryStarted,
             foreground,
             args.Hwnd,
             args.Timestamp,
@@ -613,6 +757,46 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 return;
             }
 
+            if (UsesModeMemory(decision))
+            {
+                var applicationKey = context.Application.Key;
+                if (trigger == InputContextTrigger.FocusChanged && IsModeMemorySettled(foregroundHwnd))
+                {
+                    // The window was already restored on entry. Whatever mode it is
+                    // in now, set by hotkey, mouse or the app itself, is what the
+                    // user wants back next time, so record it instead of reverting.
+                    var observed = await _inputBackend
+                        .GetStateAsync(window, cancellationToken)
+                        .ConfigureAwait(false);
+                    var recorded = _modeMemory.Record(applicationKey, observed.Mode);
+                    RecordDecision(
+                        generation,
+                        context,
+                        decision,
+                        AutomationDecisionOutcome.NoAction);
+                    TraceLine(
+                        generation,
+                        trigger,
+                        "remembered-observe",
+                        foregroundHwnd,
+                        attempt,
+                        $"process={window.ProcessName} app={applicationKey} " +
+                        $"mode={observed.Mode} recorded={recorded}");
+                    return;
+                }
+
+                if (_modeMemory.TryGet(applicationKey) is { } remembered)
+                {
+                    decision = decision with
+                    {
+                        Action = remembered == InputMode.Chinese
+                            ? InputAction.Chinese
+                            : InputAction.English,
+                        Reason = "remembered-state"
+                    };
+                }
+            }
+
             var overrideEvaluation = _manualOverrideGuard.Evaluate(context, decision);
             if (overrideEvaluation.Suppress)
             {
@@ -632,6 +816,24 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 return;
             }
 
+            if (IsKnownInaccessible(window))
+            {
+                RecordDecision(
+                    generation,
+                    context,
+                    decision,
+                    AutomationDecisionOutcome.SkippedInaccessible,
+                    InaccessibleErrorCode);
+                TraceLine(
+                    generation,
+                    trigger,
+                    "inaccessible-cached",
+                    foregroundHwnd,
+                    attempt,
+                    $"process={window.ProcessName} pid={window.ProcessId} action={decision.Action}");
+                return;
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             if (!IsCurrentGeneration(generation) ||
                 _foregroundSource.GetCurrentForegroundWindow() != foregroundHwnd)
@@ -644,20 +846,41 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 .ApplyAsync(window, providerId, decision.Action, cancellationToken)
                 .ConfigureAwait(false);
 
+            // A failure while focus sits on a list, button or read-only page is
+            // expected: many apps (Qt, Chromium) only attach an input context to
+            // real text boxes. Wait for the user to enter one instead of retrying
+            // and reporting a failure.
+            var awaitingTextEntry = !result.Success &&
+                IsRetryableApplyFailure(result.ErrorCode) &&
+                ProbeTextEntry(window) == TextEntryPresence.Absent;
+            UpdateTextEntryState(window, foregroundHwnd, result, awaitingTextEntry);
+            if (result.Success && UsesModeMemory(decision))
+            {
+                _modeMemory.Record(context.Application.Key, result.After.Mode);
+                lock (_sync)
+                {
+                    _modeMemorySettledHwnd = foregroundHwnd;
+                }
+            }
+
             RecordDecision(
                 generation,
                 context,
                 decision,
                 result.Success
                     ? AutomationDecisionOutcome.Applied
-                    : AutomationDecisionOutcome.ApplyFailed,
+                    : awaitingTextEntry
+                        ? AutomationDecisionOutcome.AwaitingTextEntry
+                        : AutomationDecisionOutcome.ApplyFailed,
                 result.ErrorCode,
                 result);
 
             TraceLine(
                 generation,
                 trigger,
-                result.Success ? "applied" : "apply-failed",
+                result.Success
+                    ? "applied"
+                    : awaitingTextEntry ? "awaiting-text-entry" : "apply-failed",
                 foregroundHwnd,
                 attempt,
                 $"process={window.ProcessName} pid={window.ProcessId} " +
@@ -673,7 +896,7 @@ public sealed class AutomationCoordinator : IAsyncDisposable
                 $"durationMs={result.Duration.TotalMilliseconds:F1} " +
                 $"error={SanitizeTraceValue(result.ErrorCode)}");
 
-            if (result.Success)
+            if (result.Success || awaitingTextEntry)
             {
                 return;
             }
@@ -688,6 +911,85 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             {
                 return;
             }
+        }
+    }
+
+    private TextEntryPresence ProbeTextEntry(WindowContext window)
+    {
+        if (_textEntryProbe is null)
+        {
+            return TextEntryPresence.Unknown;
+        }
+
+        try
+        {
+            return _textEntryProbe.Probe(window);
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+                $"stage=text-entry-probe-failed type={ex.GetType().Name}");
+            return TextEntryPresence.Unknown;
+        }
+    }
+
+    private void UpdateTextEntryState(
+        WindowContext window,
+        nint foregroundHwnd,
+        InputOperationResult result,
+        bool awaitingTextEntry)
+    {
+        lock (_sync)
+        {
+            if (awaitingTextEntry)
+            {
+                _awaitingTextEntryHwnd = foregroundHwnd;
+            }
+            else if (_awaitingTextEntryHwnd == foregroundHwnd)
+            {
+                _awaitingTextEntryHwnd = 0;
+            }
+
+            // Access is denied for the lifetime of a process (typically an elevated
+            // one), so stop calling into it and logging the same failure per visit.
+            if (result.ErrorCode == InaccessibleErrorCode)
+            {
+                if (_inaccessibleProcesses.Count >= MaxInaccessibleProcesses)
+                {
+                    _inaccessibleProcesses.Clear();
+                }
+
+                _inaccessibleProcesses[window.ProcessId] = window.ProcessName;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Memory only refines the global default: explicit application rules and
+    /// context policies always win, and a Keep/US-keyboard default has no IME
+    /// provider to restore a mode with.
+    /// </summary>
+    private bool UsesModeMemory(InputDecision decision) =>
+        _modeMemory.Enabled &&
+        decision.Source == InputDecisionSource.GlobalDefault &&
+        decision.Action is InputAction.Chinese or InputAction.English;
+
+    private bool IsModeMemorySettled(nint foregroundHwnd)
+    {
+        lock (_sync)
+        {
+            return foregroundHwnd != 0 && _modeMemorySettledHwnd == foregroundHwnd;
+        }
+    }
+
+    private bool IsKnownInaccessible(WindowContext window)
+    {
+        lock (_sync)
+        {
+            // Compare the name too so a reused PID does not inherit the verdict.
+            return _inaccessibleProcesses.TryGetValue(window.ProcessId, out var name) &&
+                string.Equals(name, window.ProcessName, StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -805,10 +1107,13 @@ public sealed class AutomationCoordinator : IAsyncDisposable
             ? "none"
             : value.Replace('\r', ' ').Replace('\n', ' ').Replace(' ', '_');
 
+    private const string InaccessibleErrorCode = "input-context-inaccessible";
+    private const int MaxInaccessibleProcesses = 64;
+
     private static bool IsRetryableApplyFailure(string? errorCode) =>
         errorCode is not (
             "input-context-unavailable" or
-            "input-context-inaccessible" or
+            InaccessibleErrorCode or
             "provider-not-found");
 
 

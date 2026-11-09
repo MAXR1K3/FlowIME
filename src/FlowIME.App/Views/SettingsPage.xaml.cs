@@ -8,6 +8,7 @@ using System.Runtime.InteropServices.WindowsRuntime;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Automation;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Media;
 using Microsoft.UI.Xaml.Media.Imaging;
@@ -29,6 +30,7 @@ public sealed partial class SettingsPage : Page
     // must start active, including controls hidden by the current page mode, or
     // their XAML defaults can overwrite persisted preferences before Loaded.
     private bool _synchronizingStartupToggle = true;
+    private bool _synchronizingAppStateMemoryToggle = true;
     // XAML raises control change events during InitializeComponent. Keep the guard
     // active until persisted overlay preferences have been loaded, otherwise the
     // default control values overwrite the user's saved settings on first visit.
@@ -69,6 +71,7 @@ public sealed partial class SettingsPage : Page
         }
 
         RefreshStartupState();
+        await RefreshAppStateMemoryStateAsync();
         await RefreshInputStatusOverlayStateAsync();
     }
 
@@ -174,7 +177,6 @@ public sealed partial class SettingsPage : Page
         {
             var startup = ((App)Application.Current).Services.StartupRegistration;
             startup.SetEnabled(StartupToggle.IsOn);
-            ShowSettingsFeedback("启动设置已保存", InfoBarSeverity.Success);
             StartupStatusText.Text = StartupToggle.IsOn
                 ? "已启用：下次登录 Windows 后 FlowIME 会直接在后台运行。"
                 : "登录后在后台启动，不弹出主窗口。";
@@ -186,7 +188,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
 
             RefreshStartupState();
-            ShowSettingsFeedback("无法更新开机启动设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法更新开机启动设置，请重试。");
         }
     }
 
@@ -252,7 +254,6 @@ public sealed partial class SettingsPage : Page
         }
 
         _savingInputStatusOverlay = true;
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             var services = ((App)Application.Current).Services;
@@ -275,7 +276,6 @@ public sealed partial class SettingsPage : Page
                 : snapshot.Started
                     ? $"已启用：{DescribeOverlayPosition(savedSettings.Position)}显示中 / EN / US。"
                     : "设置已启用，但状态浮层暂不可用。请重启 FlowIME 后重试。";
-            ShowSettingsFeedback("浮层设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -285,12 +285,66 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
             InputStatusOverlayStatusText.Text = "无法保存输入状态浮层设置。";
             await RefreshInputStatusOverlayStateAsync();
-            ShowSettingsFeedback("无法保存浮层设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存浮层设置，请重试。");
         }
         finally
         {
             _savingInputStatusOverlay = false;
             UpdateInputStatusOverlayPersonalizationState();
+        }
+    }
+
+    private async void AppStateMemoryToggle_Toggled(object sender, RoutedEventArgs e)
+    {
+        if (_synchronizingAppStateMemoryToggle)
+        {
+            return;
+        }
+
+        var settings = new AppStateMemorySettings
+        {
+            Enabled = AppStateMemoryToggle.IsOn
+        };
+
+        AppStateMemoryToggle.IsEnabled = false;
+        try
+        {
+            var services = ((App)Application.Current).Services;
+            await services.SetAppStateMemorySettingsAsync(settings);
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] stage=app-state-memory-save result=failed " +
+                $"error={ex.GetType().Name}:{ex.Message}");
+            await RefreshAppStateMemoryStateAsync();
+            ShowSettingsError("无法保存应用状态记忆设置，请重试。");
+        }
+        finally
+        {
+            AppStateMemoryToggle.IsEnabled = true;
+        }
+    }
+
+    private async Task RefreshAppStateMemoryStateAsync()
+    {
+        _synchronizingAppStateMemoryToggle = true;
+        try
+        {
+            var services = ((App)Application.Current).Services;
+            var settings = await services.GetAppStateMemorySettingsAsync();
+            AppStateMemoryToggle.IsOn = settings.Enabled;
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] stage=app-state-memory-read result=failed " +
+                $"error={ex.GetType().Name}:{ex.Message}");
+            AppStateMemoryToggle.IsOn = false;
+        }
+        finally
+        {
+            _synchronizingAppStateMemoryToggle = false;
         }
     }
 
@@ -307,14 +361,12 @@ public sealed partial class SettingsPage : Page
         };
 
         GameplayKeyboardBaselineToggle.IsEnabled = false;
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             var services = ((App)Application.Current).Services;
             await services.SetGameplayKeyboardBaselineSettingsAsync(settings);
             UpdateGameplayKeyboardBaselineStatus(
                 services.GetGameplayKeyboardBaselineSnapshot());
-            ShowSettingsFeedback("游戏键盘设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -323,7 +375,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
             GameplayKeyboardBaselineStatusText.Text = "无法保存游戏美式键盘设置。";
             await RefreshGameplayKeyboardBaselineStateAsync();
-            ShowSettingsFeedback("无法保存游戏键盘设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存游戏键盘设置，请重试。");
         }
         finally
         {
@@ -350,7 +402,6 @@ public sealed partial class SettingsPage : Page
         _savingHotkeys = true;
         GameplayHotkeyGuardToggle.IsEnabled = false;
         UpdateGameplayHotkeySubControls();
-        ShowSettingsFeedback("正在保存…", InfoBarSeverity.Informational);
         try
         {
             await ((App)Application.Current)
@@ -359,7 +410,6 @@ public sealed partial class SettingsPage : Page
             GameplayHotkeyStatusText.Text = settings.Enabled
                 ? "已启用：仅在检测到游戏场景时生效；离开游戏会立即恢复快捷键。"
                 : "已关闭：FlowIME 不会拦截游戏中的输入法快捷键。";
-            ShowSettingsFeedback("快捷键保护设置已保存", InfoBarSeverity.Success);
         }
         catch (Exception ex)
         {
@@ -368,7 +418,7 @@ public sealed partial class SettingsPage : Page
                 $"error={ex.GetType().Name}:{ex.Message}");
             GameplayHotkeyStatusText.Text = "无法保存游戏快捷键保护设置。";
             await RefreshGameplayHotkeyGuardStateAsync();
-            ShowSettingsFeedback("无法保存快捷键设置，请重试。", InfoBarSeverity.Error);
+            ShowSettingsError("无法保存快捷键设置，请重试。");
         }
         finally
         {
@@ -489,16 +539,38 @@ public sealed partial class SettingsPage : Page
         AutoSuggestBoxTextChangedEventArgs args) =>
         ApplyGameLibraryFilter();
 
+    private void GameLibraryFilterBar_SelectionChanged(
+        SelectorBar sender,
+        SelectorBarSelectionChangedEventArgs args) =>
+        ApplyGameLibraryFilter();
+
     private void ApplyGameLibraryFilter()
     {
-        var query = GameLibrarySearchBox.Text?.Trim();
-        var filtered = string.IsNullOrWhiteSpace(query)
-            ? _gameLibraryItems
-            : _gameLibraryItems.Where(item =>
-                    item.DisplayName.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
-                    item.SourceName.Contains(query, StringComparison.CurrentCultureIgnoreCase))
-                .ToArray();
-        GameLibraryList.ItemsSource = filtered;
+        if (GameLibraryList is null)
+        {
+            return;
+        }
+
+        var filter = GameLibraryFilterBar.SelectedItem?.Tag is string tag &&
+            Enum.TryParse<GameLibraryFilter>(tag, out var selected)
+                ? selected
+                : GameLibraryFilter.All;
+        var filtered = GameLibraryView.Filter(_gameLibraryItems, GameLibrarySearchBox.Text, filter);
+
+        // Sections only help when both kinds are listed together.
+        GameLibraryList.ItemsSource = filter == GameLibraryFilter.All
+            ? new CollectionViewSource { IsSourceGrouped = true, Source = GameLibraryView.Group(filtered) }.View
+            : filtered;
+        GameLibraryEmptyText.Visibility = filtered.Count == 0 && _gameLibraryItems.Count > 0
+            ? Visibility.Visible
+            : Visibility.Collapsed;
+    }
+
+    private void UpdateGameLibraryFilterLabels()
+    {
+        GameFilterAllItem.Text = GameLibraryView.TabLabel(GameLibraryFilter.All, _gameLibraryItems);
+        GameFilterConfiguredItem.Text = GameLibraryView.TabLabel(GameLibraryFilter.Configured, _gameLibraryItems);
+        GameFilterNotSetUpItem.Text = GameLibraryView.TabLabel(GameLibraryFilter.NotSetUp, _gameLibraryItems);
     }
 
     private async Task<GameTextEntryTargetItemViewModel?> ResolveExecutableForTargetAsync(
@@ -615,16 +687,10 @@ public sealed partial class SettingsPage : Page
         }
     }
 
-    private void SettingsFeedbackBar_Closed(InfoBar sender, InfoBarClosedEventArgs args) =>
-        SettingsFeedbackBar.Visibility = Visibility.Collapsed;
-
-    private void ShowSettingsFeedback(string message, InfoBarSeverity severity)
-    {
-        SettingsFeedbackBar.Visibility = Visibility.Visible;
-        SettingsFeedbackBar.Severity = severity;
-        SettingsFeedbackBar.Message = message;
-        SettingsFeedbackBar.IsOpen = true;
-    }
+    // Settings save on change and each switch shows its own state, so only
+    // failures are announced.
+    private static void ShowSettingsError(string message) =>
+        ((App)Application.Current).MainWindow?.ShowToast(InfoBarSeverity.Error, "保存失败", message);
 
     private static string SanitizeTraceValue(string? value) =>
         string.IsNullOrWhiteSpace(value)
@@ -871,6 +937,7 @@ public sealed partial class SettingsPage : Page
             item.Icon = await LoadGameArtworkAsync(item);
         }
 
+        UpdateGameLibraryFilterLabels();
         ApplyGameLibraryFilter();
         var configuredCount = _gameLibraryItems.Count(item => item.HasProfile);
         GameTextEntryProfileStatusText.Text = _gameLibraryItems.Count == 0

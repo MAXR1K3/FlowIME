@@ -5,7 +5,10 @@ using FlowIME.Windows.Interop;
 
 namespace FlowIME.Windows.Windowing;
 
-public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocusSource
+public sealed class ForegroundWindowSource :
+    IForegroundWindowSource,
+    IInputFocusSource,
+    ITextEntrySignalSource
 {
     private static readonly TimeSpan StartupTimeout = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan ShutdownTimeout = TimeSpan.FromSeconds(3);
@@ -17,6 +20,7 @@ public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocu
     private Exception? _startupException;
     private nint _foregroundHook;
     private nint _focusHook;
+    private nint _caretHook;
     private uint _nativeThreadId;
     private int _disposed;
 
@@ -55,6 +59,8 @@ public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocu
     public event EventHandler<ForegroundWindowChangedEventArgs>? ForegroundWindowChanged;
 
     public event EventHandler<InputFocusChangedEventArgs>? InputFocusChanged;
+
+    public event EventHandler<InputFocusChangedEventArgs>? CaretShown;
 
     public nint GetCurrentForegroundWindow()
     {
@@ -129,6 +135,17 @@ public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocu
                     "SetWinEventHook(EVENT_OBJECT_FOCUS) failed.");
             }
 
+            // Optional hint for self-drawn editors; automation works without it,
+            // so a failure here is not a startup error.
+            _caretHook = User32Native.SetWinEventHook(
+                User32Native.EventObjectShow,
+                User32Native.EventObjectShow,
+                0,
+                _winEventProc,
+                0,
+                0,
+                User32Native.WineventOutOfContext | User32Native.WineventSkipOwnProcess);
+
             _started.Set();
 
             while (true)
@@ -160,6 +177,12 @@ public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocu
         }
         finally
         {
+            if (_caretHook != 0)
+            {
+                _ = User32Native.UnhookWinEvent(_caretHook);
+                _caretHook = 0;
+            }
+
             if (_focusHook != 0)
             {
                 _ = User32Native.UnhookWinEvent(_focusHook);
@@ -192,6 +215,13 @@ public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocu
             return;
         }
 
+        // EVENT_OBJECT_SHOW fires for every object in every process; drop
+        // non-caret objects before any other work.
+        if (eventType == User32Native.EventObjectShow && idObject != User32Native.ObjIdCaret)
+        {
+            return;
+        }
+
         try
         {
             if (eventType == User32Native.EventSystemForeground)
@@ -215,6 +245,19 @@ public sealed class ForegroundWindowSource : IForegroundWindowSource, IInputFocu
                 }
 
                 InputFocusChanged?.Invoke(
+                    this,
+                    new InputFocusChangedEventArgs(
+                        hwnd,
+                        idObject,
+                        idChild,
+                        DateTimeOffset.UtcNow));
+                return;
+            }
+
+            if (eventType == User32Native.EventObjectShow &&
+                BelongsToCurrentForegroundProcess(hwnd))
+            {
+                CaretShown?.Invoke(
                     this,
                     new InputFocusChangedEventArgs(
                         hwnd,

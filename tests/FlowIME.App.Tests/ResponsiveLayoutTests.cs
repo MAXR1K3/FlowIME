@@ -52,12 +52,13 @@ public sealed class ResponsiveLayoutTests
     }
 
     [Fact]
-    public void Settings_has_persistent_save_feedback_independent_of_status_refresh()
+    public void Settings_announces_only_save_failures()
     {
-        var doc = Xaml("Views/SettingsPage.xaml");
-        Assert.Equal("Polite", (string?)Named(doc, "SettingsFeedbackBar").Attribute("AutomationProperties.LiveSetting"));
         var source = File.ReadAllText(Path.Combine(Root, "src", "FlowIME.App", "Views", "SettingsPage.xaml.cs"));
-        Assert.Contains("ShowSettingsFeedback", source);
+        Assert.Contains("ShowSettingsError", source);
+        Assert.Contains("ShowToast(InfoBarSeverity.Error", source);
+        Assert.DoesNotContain("正在保存", source);
+        Assert.DoesNotContain("InfoBarSeverity.Success", source);
         Assert.Contains("_pendingInputStatusOverlaySettings", source);
         Assert.DoesNotContain("InputStatusOverlayToggle.IsEnabled = false", source);
         Assert.Contains("finally", source);
@@ -184,24 +185,18 @@ public sealed class ResponsiveLayoutTests
     private static XElement Named(XDocument doc, string name) => doc.Descendants().Single(e => (string?)e.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == name);
 
     [Theory]
-    [InlineData("HomePage.xaml")]
-    [InlineData("RulesPage.xaml")]
-    public void Large_window_width_cap_is_owned_by_the_centered_viewport(string file)
+    [InlineData("HomePage.xaml", "PageContent")]
+    [InlineData("RulesPage.xaml", "PageRoot")]
+    [InlineData("SettingsPage.xaml", "PageContent")]
+    public void Pages_share_one_content_width_and_keep_the_scrollbar_at_the_window_edge(string file, string contentName)
     {
-        var viewport = Xaml("Views/" + file).Root!.Elements().First(e => e.Name.LocalName == "ScrollViewer");
-        Assert.Equal("Stretch", (string?)viewport.Attribute("HorizontalAlignment"));
-        Assert.Equal("{StaticResource FlowPageContentMaxWidth}", (string?)viewport.Attribute("MaxWidth"));
-    }
-
-    [Fact]
-    public void Settings_content_is_left_aligned_and_capped_without_centering_the_viewport()
-    {
-        var page = Xaml("Views/SettingsPage.xaml");
+        var page = Xaml("Views/" + file);
         var viewport = page.Root!.Elements().First(e => e.Name.LocalName == "ScrollViewer");
-        var content = Named(page, "PageContent");
+        var content = Named(page, contentName);
 
+        Assert.Equal("Stretch", (string?)viewport.Attribute("HorizontalAlignment"));
         Assert.Null((string?)viewport.Attribute("MaxWidth"));
-        Assert.Equal("Left", (string?)content.Attribute("HorizontalAlignment"));
+        Assert.Equal("Stretch", (string?)content.Attribute("HorizontalAlignment"));
         Assert.Equal("{StaticResource FlowPageContentMaxWidth}", (string?)content.Attribute("MaxWidth"));
     }
 
@@ -234,9 +229,28 @@ public sealed class ResponsiveLayoutTests
     }
 
     [Fact]
-    public void Home_closed_feedback_does_not_reserve_a_stack_gap()
+    public void Feedback_floats_over_the_page_instead_of_pushing_content()
     {
-        Assert.Equal("Collapsed", (string?)Named(Xaml("Views/HomePage.xaml"), "HomeFeedbackBar").Attribute("Visibility"));
+        var window = Xaml("MainWindow.xaml");
+        var host = Named(window, "ToastHost");
+        var frame = Named(window, "ContentFrame");
+
+        Assert.Same(frame.Parent, host.Parent);
+        Assert.Equal("Collapsed", (string?)host.Attribute("Visibility"));
+        Assert.Equal("Bottom", (string?)host.Attribute("VerticalAlignment"));
+        Assert.Equal("Polite", (string?)Named(window, "ToastBar").Attribute("AutomationProperties.LiveSetting"));
+
+        foreach (var (file, bar) in new[]
+        {
+            ("Views/HomePage.xaml", "HomeFeedbackBar"),
+            ("Views/RulesPage.xaml", "RuleFeedbackBar"),
+            ("Views/SettingsPage.xaml", "SettingsFeedbackBar")
+        })
+        {
+            Assert.DoesNotContain(
+                Xaml(file).Descendants(),
+                e => (string?)e.Attribute(XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml")) == bar);
+        }
     }
 
     [Theory]

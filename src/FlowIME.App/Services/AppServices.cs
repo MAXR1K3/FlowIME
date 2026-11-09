@@ -32,11 +32,16 @@ public sealed class AppServices : IAsyncDisposable
     private readonly JsonAppSettingsRepository _settingsRepository;
     private readonly JsonGameTextEntryProfileRepository _gameTextEntryProfileRepository;
     private readonly InputMethodProviderRegistry _inputMethodProviders;
+    private readonly QuickRuleService _quickRules;
     private readonly GameplayEligibilityDetector _gameplayEligibilityDetector;
     private readonly GameTextEntryRuntimeState _gameTextEntryRuntimeState = new();
     private readonly GameTextEntryProfileRegistry _gameTextEntryProfiles = new();
     private readonly GameplayKeyboardBaseline _gameplayKeyboardBaseline;
     private readonly GameplayHotkeyGuard _gameplayHotkeyGuard;
+    private readonly GameplayPointerMonitor _gameplayPointerMonitor = new();
+    private readonly PointerMenuTracker _pointerMenuTracker = new();
+    private readonly object _pointerMenuSync = new();
+    private nint _pointerMenuHwnd;
     private readonly GameTextEntryHotkeyMonitor _gameTextEntryHotkeyMonitor;
     private readonly InputStatusOverlay _inputStatusOverlay;
     private readonly KeyboardLayoutInspector _keyboardLayoutInspector = new();
@@ -57,6 +62,7 @@ public sealed class AppServices : IAsyncDisposable
     private Task _gameTextEntryHotkeyTask = Task.CompletedTask;
     private RecentGameplayTarget? _recentGameplayTarget;
     private readonly ActiveGameplayTargetTracker _activeGameplayTargetTracker = new();
+    private readonly ApplicationModeMemory _modeMemory = new();
     private long _gameplayExitRestoreCount;
     private DateTimeOffset? _gameplayExitRestoreLastAt;
     private string _gameplayExitRestoreLastTarget = "none";
@@ -121,8 +127,12 @@ public sealed class AppServices : IAsyncDisposable
             contextEngine: contextEngine,
             decisionEngine: decisionEngine,
             manualOverrideGuard: manualOverrideGuard,
-            decisionJournal: decisionJournal);
+            decisionJournal: decisionJournal,
+            textEntryProbe: new UiAutomationTextEntryProbe(),
+            modeMemory: _modeMemory);
         _automation.DecisionRecorded += OnAutomationDecisionRecorded;
+        _gameplayHotkeyGuard.ImeToggleGestureDetected += OnImeToggleGestureDetected;
+        _gameplayPointerMonitor.Sampled += OnGameplayPointerSampled;
 
         ForegroundContext = new ForegroundContextService(
             _foregroundSource,
@@ -131,6 +141,11 @@ public sealed class AppServices : IAsyncDisposable
             decisionEngine,
             RuleRepository,
             backend);
+        QuickRuleTargets = new QuickRuleTargetTracker(QuickRuleTargetTracker.ResolveDisplayName);
+        _quickRules = new QuickRuleService(
+            RuleRepository,
+            _inputMethodProviders.Descriptors,
+            () => DefaultInputMethodProviderId);
         ForegroundContext.StateChanged += OnForegroundContextStateChanged;
     }
 
@@ -139,6 +154,8 @@ public sealed class AppServices : IAsyncDisposable
     public IRunningApplicationCatalog RunningApplications { get; }
 
     public ForegroundContextService ForegroundContext { get; }
+
+    internal QuickRuleTargetTracker QuickRuleTargets { get; }
 
     public StartupRegistrationService StartupRegistration { get; }
 
@@ -234,6 +251,7 @@ public sealed class AppServices : IAsyncDisposable
             {
                 UpdateGameplayKeyboardBaselineContext(current);
                 UpdateGameplayHotkeyGuardContext(current);
+                UpdateGameplayPointerMonitorContext(current);
                 UpdateGameTextEntryHotkeyMonitorContext(current, enabled);
             }
 
@@ -242,6 +260,40 @@ public sealed class AppServices : IAsyncDisposable
         finally
         {
             _automationStateGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// Applies a tray quick-rule choice to the last application the user worked in.
+    /// Returns the notification to show, or null when there is no target.
+    /// </summary>
+    internal async ValueTask<QuickRuleResult?> ApplyQuickRuleAsync(QuickRuleChoice choice)
+    {
+        if (_disposed || QuickRuleTargets.Current is not { } target)
+        {
+            return null;
+        }
+
+        try
+        {
+            var result = await _quickRules.ApplyAsync(target, choice);
+            QuickRuleTargets.UpdateRule(target, result.Rule);
+            await RefreshAfterRuleChangeAsync();
+            Trace.WriteLine(
+                $"[FlowIME.UI] utc={DateTimeOffset.UtcNow:O} stage=quick-rule-applied " +
+                $"process={target.Window.ProcessName} choice={choice}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.UI] utc={DateTimeOffset.UtcNow:O} stage=quick-rule-failed " +
+                $"process={target.Window.ProcessName} choice={choice} type={ex.GetType().Name}");
+            return new QuickRuleResult(
+                "无法保存规则",
+                "请重试。若仍失败，可在设置的高级选项中复制诊断信息。",
+                null,
+                Failed: true);
         }
     }
 
@@ -474,6 +526,32 @@ public sealed class AppServices : IAsyncDisposable
         {
             _automation.RequestCurrentReapply(InputContextTrigger.ManualRefresh);
         }
+    }
+
+    public async ValueTask<AppStateMemorySettings> GetAppStateMemorySettingsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        var settings = await _settingsRepository
+            .GetAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return settings.AppStateMemory;
+    }
+
+    public async ValueTask SetAppStateMemorySettingsAsync(
+        AppStateMemorySettings settings,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        await _settingsRepository
+            .SaveAppStateMemoryAsync(settings, cancellationToken)
+            .ConfigureAwait(false);
+        _modeMemory.SetEnabled(settings.Enabled);
+        Trace.WriteLine(
+            $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+            $"stage=app-state-memory enabled={settings.Enabled}");
     }
 
     public GameplayKeyboardBaselineSnapshot GetGameplayKeyboardBaselineSnapshot()
@@ -915,10 +993,13 @@ public sealed class AppServices : IAsyncDisposable
         ForegroundContext.StateChanged -= OnForegroundContextStateChanged;
         _foregroundSource.ForegroundWindowChanged -= OnRawForegroundChangedForHotkeyGuard;
         _automation.DecisionRecorded -= OnAutomationDecisionRecorded;
+        _gameplayHotkeyGuard.ImeToggleGestureDetected -= OnImeToggleGestureDetected;
+        _gameplayPointerMonitor.Sampled -= OnGameplayPointerSampled;
         _gameTextEntryHotkeyMonitor.TransitionDetected -= OnGameTextEntryHotkeyTransitionDetected;
         await _initializationTask.ConfigureAwait(false);
         _gameplayHotkeyGuard.SetAutomationEnabled(false);
         _gameplayHotkeyGuard.Dispose();
+        _gameplayPointerMonitor.Dispose();
         _gameTextEntryHotkeyMonitor.Dispose();
         _inputStatusOverlay.Dispose();
         await _automation.DisposeAsync().ConfigureAwait(false);
@@ -997,6 +1078,7 @@ public sealed class AppServices : IAsyncDisposable
             _gameplayHotkeyGuard.UpdateSettings(settings.GameplayHotkeyGuard);
             _gameplayHotkeyGuard.SetAutomationEnabled(IsAutomationEnabled);
             _inputStatusOverlay.UpdateSettings(settings.InputStatusOverlay);
+            _modeMemory.SetEnabled(settings.AppStateMemory.Enabled);
 
             if (ForegroundContext.Current is { } current)
             {
@@ -1240,12 +1322,43 @@ public sealed class AppServices : IAsyncDisposable
                 : InputContextTrigger.ManualRefresh);
     }
 
+    private void OnImeToggleGestureDetected(ImeToggleGesture gesture)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = CaptureManualInputSwitchAsync(gesture);
+    }
+
+    private async Task CaptureManualInputSwitchAsync(ImeToggleGesture gesture)
+    {
+        try
+        {
+            await _automation
+                .CaptureManualInputSwitchAsync($"toggle-{gesture}")
+                .ConfigureAwait(false);
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        catch (Exception ex)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.Automation] utc={DateTimeOffset.UtcNow:O} " +
+                $"stage=manual-switch-capture-failed type={ex.GetType().Name}");
+        }
+    }
+
     private void OnForegroundContextStateChanged(CurrentStateSnapshot snapshot)
     {
         if (_disposed)
         {
             return;
         }
+
+        QuickRuleTargets.Observe(snapshot);
 
         try
         {
@@ -1261,6 +1374,7 @@ public sealed class AppServices : IAsyncDisposable
 
             UpdateGameplayKeyboardBaselineContext(snapshot);
             UpdateGameplayHotkeyGuardContext(snapshot);
+            UpdateGameplayPointerMonitorContext(snapshot);
             UpdateGameTextEntryHotkeyMonitorContext(snapshot, IsAutomationEnabled);
 
             if (transition == GameplayTransition.Exited)
@@ -1350,6 +1464,77 @@ public sealed class AppServices : IAsyncDisposable
             gameContext: context?.HasSignal(InputContextSignalKind.Game) == true,
             gameTextEntry: context?.HasSignal(InputContextSignalKind.GameTextEntry) == true,
             processName: snapshot.Window.ProcessName);
+    }
+
+    // Pointer readings drive menu mode for games that opt in, and are logged
+    // on change for every game so other titles can be diagnosed.
+    private void UpdateGameplayPointerMonitorContext(CurrentStateSnapshot snapshot)
+    {
+        var gameContext = snapshot.Context?.HasSignal(InputContextSignalKind.Game) == true;
+        lock (_pointerMenuSync)
+        {
+            if (!gameContext || _pointerMenuHwnd != snapshot.Window.Hwnd)
+            {
+                _pointerMenuTracker.Reset();
+                _pointerMenuHwnd = gameContext ? snapshot.Window.Hwnd : 0;
+            }
+        }
+
+        _gameplayPointerMonitor.UpdateContext(
+            gameContext: gameContext,
+            hwnd: snapshot.Window.Hwnd,
+            threadId: snapshot.Window.ThreadId,
+            processName: snapshot.Window.ProcessName);
+    }
+
+    /// <summary>
+    /// Menu mode: while a game that opts in shows its pointer (menus, rename
+    /// boxes, pause screens) the game's text-entry input applies; once the
+    /// pointer is hidden again (play) the US keyboard and hotkey guard return.
+    /// A session started by the chat hotkey is never ended from here.
+    /// </summary>
+    private void OnGameplayPointerSampled(nint hwnd, CursorObservation observation)
+    {
+        if (_disposed || !IsAutomationEnabled)
+        {
+            return;
+        }
+
+        var current = ForegroundContext.Current;
+        var context = current?.Context;
+        if (current is null || context is null || current.Window.Hwnd != hwnd ||
+            !context.HasSignal(InputContextSignalKind.Game))
+        {
+            return;
+        }
+
+        var profile = _gameTextEntryProfiles.Resolve(context.Application);
+        PointerMenuTransition transition;
+        lock (_pointerMenuSync)
+        {
+            if (profile is null || !profile.DetectionMode.HasFlag(GameTextEntryDetectionMode.PointerMenu))
+            {
+                _pointerMenuTracker.Reset();
+                return;
+            }
+
+            transition = _pointerMenuTracker.Observe(observation.Showing, DateTimeOffset.UtcNow);
+        }
+
+        var session = _gameTextEntryRuntimeState.GetSnapshot();
+        if (transition == PointerMenuTransition.Enter && !session.Active)
+        {
+            Trace.WriteLine(
+                $"[FlowIME.PointerMenu] utc={DateTimeOffset.UtcNow:O} stage=enter process={current.Window.ProcessName}");
+            _ = TryEnterGameTextEntry(GameTextEntryActivationSource.PointerMenu, profile.Id);
+        }
+        else if (transition == PointerMenuTransition.Exit &&
+            session is { Active: true, Source: GameTextEntryActivationSource.PointerMenu })
+        {
+            Trace.WriteLine(
+                $"[FlowIME.PointerMenu] utc={DateTimeOffset.UtcNow:O} stage=exit process={current.Window.ProcessName}");
+            _ = ExitGameTextEntry("pointer-menu-exit");
+        }
     }
 
     private void UpdateGameTextEntryHotkeyMonitorContext(

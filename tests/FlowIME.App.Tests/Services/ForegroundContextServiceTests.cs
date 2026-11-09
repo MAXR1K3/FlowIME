@@ -54,6 +54,38 @@ public sealed class ForegroundContextServiceTests
     }
 
     [Fact]
+    public async Task Sample_follows_the_actual_foreground_when_a_transient_window_vanishes()
+    {
+        var source = new FakeForegroundWindowSource();
+        var resolver = new FakeWindowResolver(
+            Window((nint)0x10, 700, "cod", @"C:\Games\cod.exe"),
+            Window((nint)0x20, 999, "FlowIME.App", @"C:\FlowIME\FlowIME.App.exe"),
+            Window((nint)0x30, 800, "Notepad", @"C:\Windows\notepad.exe"));
+        var service = new ForegroundContextService(
+            source,
+            resolver,
+            new RuleEngine(),
+            new FakeRuleRepository([]),
+            new FakeInputBackend(InputMode.English),
+            ignoredProcessId: 999,
+            sampleDelay: TimeSpan.FromMilliseconds(30));
+
+        service.Start();
+        source.Raise((nint)0x30);
+        await service.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        // FlowIME's own window flashes up and the game regains the foreground
+        // without a new foreground event.
+        source.Raise((nint)0x20);
+        source.SetCurrent((nint)0x10);
+        await service.WaitForIdleAsync(TestContext.Current.CancellationToken);
+
+        var current = Assert.IsType<CurrentStateSnapshot>(service.Current);
+        Assert.Equal("cod", current.Window.ProcessName);
+        await service.DisposeAsync();
+    }
+
+    [Fact]
     public async Task Rule_match_refresh_updates_status_without_resampling_input_state()
     {
         var source = new FakeForegroundWindowSource();
@@ -212,6 +244,7 @@ public sealed class ForegroundContextServiceTests
                 this,
                 new ForegroundWindowChangedEventArgs(hwnd, DateTimeOffset.UtcNow));
         }
+        public void SetCurrent(nint hwnd) => Current = hwnd;
         public void RaiseFocus(nint hwnd) =>
             InputFocusChanged?.Invoke(
                 this,

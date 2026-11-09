@@ -9,7 +9,13 @@ public enum GameTextEntryDetectionMode
     StandardTextControl = 1 << 0,
     HotkeyProfile = 1 << 1,
     Manual = 1 << 2,
-    Adapter = 1 << 3
+    Adapter = 1 << 3,
+
+    /// <summary>
+    /// Text entry is assumed while the game shows its pointer (menus, rename
+    /// boxes, pause screens) and ends once the pointer is hidden again.
+    /// </summary>
+    PointerMenu = 1 << 4
 }
 
 public enum GameplayClassification
@@ -203,7 +209,8 @@ public sealed class GameTextEntryProfileRegistry
             GameTextEntryDetectionMode.StandardTextControl |
             GameTextEntryDetectionMode.HotkeyProfile |
             GameTextEntryDetectionMode.Manual |
-            GameTextEntryDetectionMode.Adapter;
+            GameTextEntryDetectionMode.Adapter |
+            GameTextEntryDetectionMode.PointerMenu;
         if (profile.DetectionMode == GameTextEntryDetectionMode.None ||
             (profile.DetectionMode & ~knownDetectionModes) != 0)
         {

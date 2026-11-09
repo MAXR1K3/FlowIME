@@ -228,6 +228,18 @@ public sealed class ForegroundContextService : IAsyncDisposable
         }
     }
 
+    private nint TryGetCurrentForegroundWindow()
+    {
+        try
+        {
+            return _foregroundSource.GetCurrentForegroundWindow();
+        }
+        catch (ObjectDisposedException)
+        {
+            return 0;
+        }
+    }
+
     private void OnForegroundWindowChanged(
         object? sender,
         ForegroundWindowChangedEventArgs args)
@@ -321,6 +333,20 @@ public sealed class ForegroundContextService : IAsyncDisposable
             if (_sampleDelay > TimeSpan.Zero)
             {
                 await Task.Delay(_sampleDelay, cancellationToken).ConfigureAwait(false);
+            }
+
+            // Describe the window the user actually sees. A transient window (a
+            // splash, FlowIME's own window) can vanish without Windows reporting
+            // the return to the previous foreground; sampling the event's window
+            // would then leave Current stuck on an older, possibly pre-startup
+            // snapshot (for example a game not yet recognized as one).
+            var actualForeground = TryGetCurrentForegroundWindow();
+            if (actualForeground != 0 && actualForeground != hwnd)
+            {
+                hwnd = actualForeground;
+                focusHwnd = 0;
+                focusObjectId = 0;
+                focusChildId = 0;
             }
 
             var window = await _windowResolver

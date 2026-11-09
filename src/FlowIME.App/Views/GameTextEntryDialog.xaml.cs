@@ -51,6 +51,8 @@ public sealed partial class GameTextEntryDialog : ContentDialog
             seed.DetectionMode.HasFlag(GameTextEntryDetectionMode.StandardTextControl);
         HotkeyProfileToggle.IsOn =
             seed.DetectionMode.HasFlag(GameTextEntryDetectionMode.HotkeyProfile);
+        PointerMenuToggle.IsOn =
+            seed.DetectionMode.HasFlag(GameTextEntryDetectionMode.PointerMenu);
         RefreshGestureBoxes();
 
         var targets = BuildTargetOptions(services);
@@ -286,6 +288,10 @@ public sealed partial class GameTextEntryDialog : ContentDialog
         if (HotkeyProfileToggle.IsOn)
         {
             mode |= GameTextEntryDetectionMode.HotkeyProfile;
+        }
+        if (PointerMenuToggle.IsOn)
+        {
+            mode |= GameTextEntryDetectionMode.PointerMenu;
         }
 
         if (mode == GameTextEntryDetectionMode.None)
